@@ -19,6 +19,11 @@ import socket
 import platform
 
 
+# TODO: make criterion a class, with a method to compute the loss and
+#       a method to get a configuration dictionary. Add logic to trainer
+#       to log the configuration of the criterion.
+
+
 class Trainer:
     def __init__(
             self,
@@ -362,9 +367,9 @@ class Trainer:
         for _ in range(n_images):
             idx = random.randint(0, len(ds) - 1)
             for strength, noise_type in zip(strengths, types):
-                x = ds[idx].to(self.device)
+                x = ds[idx]["x"].to(self.device)
                 noisy = Eval.corrupt_data(x, strength, noise_type=noise_type)
-                x_hat = self.model(noisy)
+                x_hat = self.model(noisy)["x_hat"]
                 noisy = self.reassemble_image(noisy)
                 x_hat = self.reassemble_image(x_hat)
                 images.extend([noisy, x_hat])

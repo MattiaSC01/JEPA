@@ -40,11 +40,11 @@ class Eval:
         assert 0.0 <= data_percentage <= 1.0, "data_percentage must be in [0, 1]"
         num_batches = int(data_percentage * len(data_loader))
         test_loss = 0
-        for idx, data in enumerate(data_loader):
-            data = data.to(device)
-            noisy_data = Eval.corrupt_data(data, noise_strength, noise_type="gaussian-multiplicative")
+        for idx, batch in enumerate(data_loader):
+            x = batch['x'].to(device)
+            noisy_data = Eval.corrupt_data(x, noise_strength, noise_type="gaussian-multiplicative")
             output = model(noisy_data)
-            test_loss += criterion(output, data).item()
+            test_loss += criterion(output, batch).item()
             if idx + 1 >= num_batches:
                 break
         test_loss /= num_batches

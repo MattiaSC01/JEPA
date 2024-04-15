@@ -1,2 +1,2 @@
-PROJECT = "jepa"
+PROJECT = "jepa-prove"
 ENTITY = "mattia-scardecchia"
