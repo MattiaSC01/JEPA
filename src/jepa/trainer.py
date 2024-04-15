@@ -22,6 +22,9 @@ import platform
 # TODO: make criterion a class, with a method to compute the loss and
 #       a method to get a configuration dictionary. Add logic to trainer
 #       to log the configuration of the criterion.
+# TODO: improve how we compute and log validation metrics. Be more systematic
+#       about it, e.g. have a list of callable metrics to compute and log.
+# TODO: consider whether it makes sense to subclass Trainer for each model type.
 
 
 class Trainer:
@@ -32,7 +35,8 @@ class Trainer:
             criterion: nn.Module,
             train_loader: DataLoader,
             test_loader: Optional[DataLoader] = None,
-            dataset_metadata: Optional[dict] = None,
+            train_metadata: Optional[dict] = None,
+            test_metadata: Optional[dict] = None,
             max_epochs: int = 1,
             device: str = "cpu",
             scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None,
@@ -96,7 +100,8 @@ class Trainer:
         self.criterion = criterion
         self.train_loader = train_loader
         self.test_loader = test_loader
-        self.dataset_metadata = dataset_metadata
+        self.train_metadata = train_metadata
+        self.test_metadata = test_metadata
         self.max_epochs = max_epochs
         self.device = device
         self.scheduler = scheduler
@@ -224,7 +229,7 @@ class Trainer:
         return loss / len(self.train_loader)
     
     def make_checkpoint(self):
-        chkpt_dir = os.path.join(self.checkpoint_root_dir, self.dataset_metadata["id"])
+        chkpt_dir = os.path.join(self.checkpoint_root_dir, self.train_metadata["id"])
         os.makedirs(chkpt_dir, exist_ok=True)
         chkpt_metadata = {
             "step": self.step,
@@ -234,14 +239,14 @@ class Trainer:
             "architecture": self.model.get_architecture(),
             "hyperparameters": self.get_training_hyperparameters(),
             "device": self.get_device_info(),
-            "dataset": self.dataset_metadata,
+            "train_set": self.train_metadata,
         }
         with open(os.path.join(chkpt_dir, "metadata.json"), "w") as f:
             json.dump(chkpt_metadata, f)
         chkpt_path = os.path.join(chkpt_dir, "weights.pt")
         torch.save(self.model.state_dict(), chkpt_path)
         if self.log_to_wandb:
-            artifact_name = f"chkpt-{self.dataset_metadata['id']}"
+            artifact_name = f"chkpt-{self.train_metadata['id']}"
             self.logger.log_checkpoint(chkpt_dir, artifact_name)
     
     def log_on_train_step(self, loss):
@@ -381,7 +386,7 @@ class Trainer:
         :return: a reshaped image tensor (C, H, W). dimensions
         are inferred from the dataset metadata.
         """
-        name = self.dataset_metadata["id"]
+        name = self.train_metadata["id"]
         if "cifar" in name.lower():
             x = x.reshape(32, 32, 3)
             x = x.permute(2, 0, 1)
@@ -424,11 +429,14 @@ class Trainer:
 
     def setup_wandb(self):
         self.logger.init_run(self.model, is_sweep=self.is_sweep)
-        self.logger.use_dataset(self.dataset_metadata)
+        self.logger.use_dataset(self.train_metadata)
+        self.logger.use_dataset(self.test_metadata)
         self.logger.add_to_config(self.get_training_hyperparameters())
         self.logger.add_to_config(self.get_optimizer_hyperparameters())
         self.logger.add_to_config(self.get_scheduler_hyperparameters())
         self.logger.add_to_config(self.model.get_architecture())
         self.logger.add_to_config(self.get_device_info())
-        if self.dataset_metadata:
-            self.logger.add_to_config(self.dataset_metadata)
+        if self.train_metadata:
+            self.logger.add_to_config(self.train_metadata)
+        if self.test_metadata:
+            self.logger.add_to_config(self.test_metadata)

@@ -8,44 +8,73 @@ from copy import deepcopy
 import os
 import json
 from .logger import WandbLogger
+from .utils import set_seed
 from .constants import PROJECT, ENTITY
+
+
+class DatasetWrapper(Dataset):
+    """
+    Wrapper class for a torchvision dataset.
+    Needed to have a common interface for all datasets.
+    """
+    def __init__(self, dataset: Dataset, jepa: bool = False):
+        """
+        :param dataset: a torch Dataset that spits pairs (x, y)
+        """
+        super().__init__()
+        self.dataset = dataset
+        self.jepa = jepa
+    
+    def __len__(self):
+        return len(self.dataset)
+    
+    def __getitem__(self, idx):
+        x, y = self.dataset[idx]
+        x_hat = deepcopy(x) if self.jepa else None
+        return {"x": x, "y": y, "x_hat": x_hat}
 
 
 class JepaDataset(Dataset):
     """
     Simple dataset class for JEPA.
     """
-    def __init__(self, data: torch.Tensor):
+    def __init__(self, data: torch.Tensor, labels: Optional[torch.Tensor] = None):
         """
         :param data: tensor of data points. Shape [P, ...]
         """
+        super().__init__()
         self.data = data
+        self.labels = labels
 
     def __len__(self):
         return len(self.data)
     
     def __getitem__(self, idx):
         x = self.data[idx]
-        x_hat = deepcopy(x)  # x_hat should be a corrupted version of x
-        return {"x": x, "x_hat": x_hat}
+        x_hat = deepcopy(x)  # x_hat is a corrupted version of x, for jepa
+        y = self.labels[idx] if self.labels is not None else None
+        return {"x": x, "x_hat": x_hat, "y": y}
 
 
 class AutoencoderDataset(Dataset):
     """
     Simple dataset class for autoencoders.
     """
-    def __init__(self, data: torch.Tensor):
+    def __init__(self, data: torch.Tensor, labels: Optional[torch.Tensor] = None):
         """
         :param data: tensor of data points. Shape [P, ...]
         """
+        super().__init__()
         self.data = data
+        self.labels = labels
 
     def __len__(self):
         return len(self.data)
     
     def __getitem__(self, idx):
         x = self.data[idx]
-        return {"x": x}
+        y = self.labels[idx] if self.labels is not None else None
+        return {"x": x, "y": y}
 
 
 class HiddenManifold:
@@ -197,27 +226,6 @@ class HiddenManifold:
         dataset_path = metadata["dataset_path"]
         dataset = torch.load(dataset_path)
         return dataset, metadata
-    
-
-def load_mnist_as_dataset(train: bool = True) -> datasets.MNIST:
-    """
-    Load MNIST as a torch Dataset, with transforms that flatten
-    digits and scale pixel intensities to [-1, 1].
-    Useful for data exploration and visualization.
-    :param train: if True, load the training set, otherwise load the test set
-    """
-    transform_pipeline = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Lambda(lambda x: x.flatten(start_dim=1)),
-        transforms.Lambda(lambda x: 2 * (x / 255) - 1),
-    ])
-    dataset = datasets.MNIST(
-        root="data",
-        train=train,
-        download=True,
-        transform=transform_pipeline,
-    )
-    return dataset
 
 
 def load_mnist(
@@ -225,68 +233,81 @@ def load_mnist(
     log_to_wandb: bool = False,
     root: str = "data",
     project: str = PROJECT,
-) -> tuple[torch.Tensor, dict]:
+    shuffle: Optional[int] = None,
+    jepa: bool = False,
+    num_samples: Optional[int] = None,
+) -> tuple[Dataset, dict]:
     """
     Load MNIST dataset, flatten digits and scale pixel intensities to [-1, 1].
-    Return it as a tensor, together with metadata.
-    Use this to train models.
-    :param train: if True, load the training set, otherwise load the test set
-    :param log_to_wandb: if True, save the dataset locally and then log it to wandb.
-    :param root: root directory where to seek/save the dataset
-    :param project: wandb project where to log the dataset
+    Return it as a Dataset, together with metadata.
+    :param log_to_wandb: if True, log the dataset to Weights and Biases (before shuffling).
+    :param shuffle: seed for shuffling the dataset. If None, don't shuffle.
+    :param jepa: if True, the returned dataset will also spit x_hat for jepa training.
+    :param num_samples: if not None, return only the first num_samples samples after shuffling.
     """
     dataset = datasets.MNIST(
         root=root,
         train=train,
         download=True,
     )
-    data = dataset.data
-    data = 2 * (data / 255) - 1
-    data = data.flatten(start_dim=1)
+    dataset.data = 2 * (dataset.data / 255) - 1
+    dataset.data = dataset.data.flatten(start_dim=1)
     split = "train" if train else "test"
-    metadata = {"id": f"mnist-{split}", "dataset_dir": "data/MNIST"}
+    metadata = {"id": f"mnist-{split}", "shuffle": shuffle, "dataset_dir": "data/MNIST", "num_samples": num_samples}
     if log_to_wandb:
         filepath = os.path.join(metadata["dataset_dir"], metadata["id"])
-        torch.save(data, filepath)
-        WandbLogger.log_dataset(data, metadata, project=project, entity=ENTITY)
-    return data, metadata
+        torch.save(dataset.data, filepath)
+        WandbLogger.log_dataset(dataset.data, metadata, project=project, entity=ENTITY)
+    if shuffle is not None:
+        set_seed(shuffle)
+        dataset.data = dataset.data[torch.randperm(len(dataset.data))]
+    if num_samples is not None:
+        assert num_samples <= len(dataset.data), "num_samples must be less than the dataset size"
+        dataset.data = dataset.data[:num_samples]
+        dataset.targets = dataset.targets[:num_samples]
+    return DatasetWrapper(dataset, jepa=jepa), metadata
 
 
-def load_cifar(train: bool = True, log_to_wandb: bool = False, root: str = "data", project: str = PROJECT, num_classes: int = 10):
+def load_cifar(
+    train: bool = True,
+    log_to_wandb: bool = False,
+    root: str = "data",
+    project: str = PROJECT,
+    num_classes: int = 10,
+    shuffle: Optional[int] = None,
+    jepa: bool = False,
+    num_samples: Optional[int] = None,
+) -> tuple[torch.Tensor, dict]:
+    """
+    Load CIFAR10 or CIFAR100 dataset, flatten images and scale pixel intensities to [-1, 1].
+    Return it as a Dataset, together with metadata.
+    :param log_to_wandb: if True, log the dataset to Weights and Biases (before shuffling).
+    :param shuffle: seed for shuffling the dataset. If None, don't shuffle.
+    :param jepa: if True, the returned dataset will also spit x_hat for jepa training.
+    :param num_samples: if not None, return only the first num_samples samples after shuffling.
+    """
     cifar = datasets.CIFAR10 if num_classes == 10 else datasets.CIFAR100
     dataset = cifar(
         root=root,
         train=train,
         download=True,
     )
-    data = torch.tensor(dataset.data)
-    data = 2 * (data / 255) - 1
-    data = data.flatten(start_dim=1)
+    dataset.data = 2 * (dataset.data / 255) - 1
+    dataset.data = dataset.data.flatten(start_dim=1)
     split = "train" if train else "test"
-    metadata = {"id": f"cifar{num_classes}-{split}", "dataset_dir": f"data/cifar-{num_classes}-batches-py"}
+    metadata = {"id": f"cifar{num_classes}-{split}", "dataset_dir": f"data/cifar-{num_classes}-batches-py", "num_samples": num_samples, "shuffle": shuffle}
     if log_to_wandb:
         filepath = os.path.join(metadata["dataset_dir"], metadata["id"])
         os.makedirs(metadata["dataset_dir"], exist_ok=True)
         print(f"Saving dataset in {filepath}")
-        torch.save(data, filepath)
+        torch.save(dataset.data, filepath)
         print(f"Logging dataset {metadata['id']} to wandb project {project}.")
-        WandbLogger.log_dataset(data, metadata, project=project, entity=ENTITY)
-    return data, metadata
-
-
-# # Example usage in main.py
-
-# # generate and save a hidden manifold dataset
-# hm = HiddenManifold(save_dir="data")
-# config = hm.build_config(noise=0.1)
-# dataset = hm.generate_dataset(config)
-# id = "test"
-# hm.save_dataset(dataset, id, exist_ok=True, log_to_wandb=False)
-
-# # load hidden manifold dataset
-# hm = HiddenManifold(save_dir="data")
-# id = "test"
-# dataset, dataset_metadata = hm.load_dataset(id)
-# N = dataset[0].shape[-1]
-# log_images = False
-# B = 64
+        WandbLogger.log_dataset(dataset.data, metadata, project=project, entity=ENTITY)
+    if shuffle is not None:
+        set_seed(shuffle)
+        dataset.data = dataset.data[torch.randperm(len(dataset.data))]
+    if num_samples is not None:
+        assert num_samples <= len(dataset.data), "num_samples must be less than the dataset size"
+        dataset.data = dataset.data[:num_samples]
+        dataset.targets = dataset.targets[:num_samples]
+    return DatasetWrapper(dataset, jepa=jepa), metadata

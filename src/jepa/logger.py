@@ -83,11 +83,19 @@ class WandbLogger:
     
     def use_dataset(self, metadata: dict):
         """
-        Log to wandb that the dataset has been used for training.
+        Log to wandb that the dataset has been used for training/testing.
         :param metadata: dictionary with metadata about the dataset.
-        must contain the following keys: id.
+                         must contain the following keys: id, use_as.
         """
-        self.run.use_artifact(f"{metadata['id']}:latest")
+        try:
+            self.run.use_artifact(f"{metadata['id']}:latest", use_as=metadata["use_as"])
+        except wandb.errors.CommError as e:
+            # not sure if this exception is too broad
+            print(f"Tried to log usage of dataset artifact {metadata['id']}, but it was not found.")
+            if "mnist" in metadata["id"] or "cifar" in metadata["id"]:
+                print("Continuing without logging the dataset usage, as it is a common dataset.")
+            else:
+                raise e
     
     def add_to_config(self, hyperparameters: dict):
         self.run.config.update(hyperparameters)

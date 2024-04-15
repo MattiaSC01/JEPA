@@ -3,8 +3,14 @@ from torch import nn
 from copy import deepcopy
 
 
+# TODO: Log detailes of the model architecture
+# TODO: allow making checkpoints
+# TODO: create methods to monitor relevant metrics (e.g. overlap encoder-ema, norms, etc.)
+
+
 class Jepa(nn.Module):
-    def __init__(self, encoder, predictor):
+    def __init__(self, encoder: nn.Module, predictor: nn.Module):
+        super().__init__()
         self.encoder = encoder
         self.predictor = predictor
         self.ema = deepcopy(encoder)

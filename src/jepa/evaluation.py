@@ -7,6 +7,10 @@ from collections import defaultdict
 import copy
 
 
+# TODO: create a function that accepts an encoder and a train_loader and
+#       trains a linear predictor on top of the frozen encoder.
+
+
 class Eval:
     """
     This class groups together a bunch of useful static methods for
