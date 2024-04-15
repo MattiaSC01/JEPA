@@ -25,6 +25,9 @@ import platform
 # TODO: improve how we compute and log validation metrics. Be more systematic
 #       about it, e.g. have a list of callable metrics to compute and log.
 # TODO: consider whether it makes sense to subclass Trainer for each model type.
+# TODO: incorporate (optionally? in a subclass?) evaluation through training a linear
+#       classifier on top of the encoder.
+# TODO: (big) experiments with sparsity levels using hierarchical dataset.
 
 
 class Trainer:

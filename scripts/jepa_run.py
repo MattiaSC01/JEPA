@@ -7,6 +7,9 @@ from jepa.trainer import Trainer
 from jepa.sam import SAM
 
 
+# TODO: test! (at the very least Jepa class is missing some logging methods)
+
+
 # fixed hyperparams
 N = 784
 B = 30
