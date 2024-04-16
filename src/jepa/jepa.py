@@ -10,8 +10,6 @@ from .utils import sequential_from_string, set_seed
 
 # TODO: create methods to monitor relevant metrics 
 #       (e.g. overlap encoder-ema, norms, etc.)
-# TODO: jepa training is slow as hell rn. Probably due to copying the weights.
-#       fix that. If still slow, profile and optimize.
 
 
 class Jepa(nn.Module):
@@ -131,15 +129,7 @@ class JepaTrainer(Trainer):
         self.alpha = alpha
     
     def train_step(self, batch: dict) -> dict:
-        x = batch['x'].to(self.device)
-        output = self.model(x)
-        losses = self.criterion(output, batch)
-        loss = losses["loss"]
-        self.optimizer.zero_grad()
-        loss.backward()
-        self.optimizer.step()
-        self.model.update_ema(self.alpha)  # update EMA
-        self.step += 1
-        if self.log_to_wandb:
-            self.log_on_train_step(losses)
-        return loss.item()
+        print("step")
+        loss = super().train_step(batch)
+        self.model.update_ema(self.alpha)
+        return loss

@@ -3,6 +3,8 @@ from torch import nn
 from typing import Optional, Union
 import os
 import json
+
+from jepa.trainer import Trainer
 from .utils import set_seed
 
 

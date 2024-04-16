@@ -51,7 +51,7 @@ class JepaDataset(Dataset):
     
     def __getitem__(self, idx):
         x = self.data[idx]
-        x_hat = deepcopy(x)  # x_hat is a corrupted version of x, for jepa
+        x_hat = x  # !! this is not a copy, but a reference
         y = self.labels[idx] if self.labels is not None else None
         return {"x": x, "x_hat": x_hat, "y": y}
 
