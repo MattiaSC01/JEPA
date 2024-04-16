@@ -97,7 +97,9 @@ class WandbLogger:
             else:
                 raise e
     
-    def add_to_config(self, hyperparameters: dict):
+    def add_to_config(self, hyperparameters: dict, prefix: str = ""):
+        if prefix:
+            hyperparameters = {f"{prefix}/{k}": v for k, v in hyperparameters.items()}
         self.run.config.update(hyperparameters)
 
     def end_run(self):

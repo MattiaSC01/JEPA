@@ -445,11 +445,11 @@ class Trainer:
         self.logger.use_dataset(self.train_metadata)
         self.logger.use_dataset(self.test_metadata)
         self.logger.add_to_config(self.get_training_hyperparameters())
-        self.logger.add_to_config(self.get_optimizer_hyperparameters())
-        self.logger.add_to_config(self.get_scheduler_hyperparameters())
-        self.logger.add_to_config(self.model.get_architecture())
-        self.logger.add_to_config(self.get_device_info())
+        self.logger.add_to_config(self.get_optimizer_hyperparameters(), prefix="optim")
+        self.logger.add_to_config(self.get_scheduler_hyperparameters(), prefix="scheduler")
+        self.logger.add_to_config(self.model.get_architecture(), prefix="model")
+        self.logger.add_to_config(self.get_device_info(), prefix="device")
         if self.train_metadata:
-            self.logger.add_to_config(self.train_metadata)
+            self.logger.add_to_config(self.train_metadata, prefix="train_data")
         if self.test_metadata:
-            self.logger.add_to_config(self.test_metadata)
+            self.logger.add_to_config(self.test_metadata, prefix="test_data")
