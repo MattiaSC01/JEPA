@@ -12,26 +12,26 @@ from .utils import set_seed
 from .constants import PROJECT, ENTITY
 
 
-class DatasetWrapper(Dataset):
-    """
-    Wrapper class for a torchvision dataset.
-    Needed to have a common interface for all datasets.
-    """
-    def __init__(self, dataset: Dataset, jepa: bool = False):
-        """
-        :param dataset: a torch Dataset that spits pairs (x, y)
-        """
-        super().__init__()
-        self.dataset = dataset
-        self.jepa = jepa
+# class DatasetWrapper(Dataset):
+#     """
+#     Wrapper class for a torchvision dataset.
+#     Needed to have a common interface for all datasets.
+#     """
+#     def __init__(self, dataset: Dataset, jepa: bool = False):
+#         """
+#         :param dataset: a torch Dataset that spits pairs (x, y)
+#         """
+#         super().__init__()
+#         self.dataset = dataset
+#         self.jepa = jepa
     
-    def __len__(self):
-        return len(self.dataset)
+#     def __len__(self):
+#         return len(self.dataset)
     
-    def __getitem__(self, idx):
-        x, y = self.dataset[idx]
-        x_hat = deepcopy(x) if self.jepa else None
-        return {"x": x, "y": y, "x_hat": x_hat}
+#     def __getitem__(self, idx):
+#         x, y = self.dataset[idx]
+#         x_hat = deepcopy(x) if self.jepa else None
+#         return {"x": x, "y": y, "x_hat": x_hat}
 
 
 class JepaDataset(Dataset):
@@ -250,24 +250,31 @@ def load_mnist(
         train=train,
         download=True,
     )
-    dataset.data = 2 * (dataset.data / 255) - 1
-    dataset.data = dataset.data.flatten(start_dim=1)
+    data, targets = dataset.data, dataset.targets
+    data = 2 * (data / 255) - 1
+    data = data.flatten(start_dim=1)
     split = "train" if train else "test"
     metadata = {"id": f"mnist-{split}", "shuffle": shuffle, "dataset_dir": "data/MNIST", "num_samples": num_samples}
     if log_to_wandb:
+        # TODO: this should also log labels
         filepath = os.path.join(metadata["dataset_dir"], metadata["id"])
-        torch.save(dataset.data, filepath)
-        WandbLogger.log_dataset(dataset.data, metadata, project=project, entity=ENTITY)
+        torch.save(data, filepath)
+        WandbLogger.log_dataset(data, metadata, project=project, entity=ENTITY)
     if shuffle is not None:
         set_seed(shuffle)
-        dataset.data = dataset.data[torch.randperm(len(dataset.data))]
+        perm = torch.randperm(len(data))
+        data = data[perm]
+        targets = targets[perm]
     if num_samples is not None:
-        assert num_samples <= len(dataset.data), "num_samples must be less than the dataset size"
-        dataset.data = dataset.data[:num_samples]
-        dataset.targets = dataset.targets[:num_samples]
-    return DatasetWrapper(dataset, jepa=jepa), metadata
+        assert num_samples <= len(data), "num_samples must be less than the dataset size"
+        data = data[:num_samples]
+        targets = targets[:num_samples]
+    dataset_class = JepaDataset if jepa else AutoencoderDataset
+    dataset = dataset_class(data, targets)
+    return dataset, metadata
 
 
+# TODO: fix this like for MNIST (use different dataset class)
 def load_cifar(
     train: bool = True,
     log_to_wandb: bool = False,

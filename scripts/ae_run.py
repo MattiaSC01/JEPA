@@ -1,8 +1,9 @@
 import torch
+from torch import nn
 from torch.utils.data import DataLoader
 from jepa.utils import set_seed
-from jepa.dataset import load_cifar, AutoencoderDataset
-from jepa.autoencoder import AutoEncoder, get_autoencoder_loss
+from jepa.dataset import load_cifar, load_mnist
+from jepa.autoencoder import AutoEncoder, AutoencoderCriterion
 from jepa.trainer import Trainer
 from jepa.sam import SAM
 
@@ -11,7 +12,7 @@ from jepa.sam import SAM
 
 
 # fixed hyperparams
-N = 3072
+N = 784
 B = 30
 hidden_layers = [N, B]  # from first hidden to bottleneck, extrema included
 train_size = 16384
@@ -44,12 +45,12 @@ wandb_project = "jepa-prove"
 
 # dataset
 root = "../data"
-# set log_to_wandb to True the first time, then False
-data, dataset_metadata = load_cifar(log_to_wandb=False, project=wandb_project, root=root, num_classes=10)
-set_seed(seed)
-data = data[torch.randperm(len(data))]
-train_loader = DataLoader(AutoencoderDataset(data[:train_size]), batch_size=batch_size)
-test_loader = DataLoader(AutoencoderDataset(data[-test_size:]), batch_size=test_size)  # be mindful of the size
+train_dataset, train_metadata = load_mnist(train=True, log_to_wandb=False, project=wandb_project, root=root, jepa=False, shuffle=seed, num_samples=train_size)
+test_dataset, test_metadata = load_mnist(train=False, log_to_wandb=False, project=wandb_project, root=root, jepa=False, shuffle=seed, num_samples=test_size)
+train_metadata["use_as"] = "train"
+test_metadata["use_as"] = "test"
+train_loader = DataLoader(train_dataset, batch_size=batch_size)
+test_loader = DataLoader(test_dataset, batch_size=test_size)  # be mindful of the batch size
 
 
 # model
@@ -58,7 +59,7 @@ if optimizer_class.lower() == "sam":
     optimizer = SAM(model.parameters(), base_optimizer, lr=lr, weight_decay=weight_decay, rho=rho)
 else:
     optimizer = base_optimizer(model.parameters(), lr=lr, weight_decay=weight_decay)
-criterion = get_autoencoder_loss(sparsity_weight=sparsity_weight)
+criterion = AutoencoderCriterion(re=nn.MSELoss(), sparsity_weight=sparsity_weight)
 scheduler = None
 
 
@@ -68,7 +69,8 @@ train_config = {
     "criterion": criterion,    
     "train_loader": train_loader,
     "test_loader": test_loader,
-    "dataset_metadata": dataset_metadata,
+    "train_metadata": train_metadata,
+    "test_metadata": test_metadata,
     "max_epochs": max_epochs,
     "device": device,
     "scheduler": scheduler,

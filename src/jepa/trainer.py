@@ -95,6 +95,7 @@ class Trainer:
             target_loss = - float("inf")  # no early stopping
         if wandb_project is None:
             wandb_project = PROJECT
+        log_norm_interval = log_interval * 10 if hasattr(model, "compute_parameter_norm") else None
         self.model = model
         self.optimizer = optimizer
         self.criterion = criterion
@@ -107,6 +108,7 @@ class Trainer:
         self.scheduler = scheduler
         self.log_to_wandb = log_to_wandb
         self.log_interval = log_interval
+        self.log_norm_interval = log_norm_interval
         self.log_images = log_images
         self.checkpoint_interval = checkpoint_interval
         self.checkpoint_root_dir = checkpoint_root_dir
@@ -259,9 +261,10 @@ class Trainer:
             return
         for key, value in losses.items():
             self.logger.log_metric(value.item(), f"train/{key}", self.step)
-        weight_norm, bias_norm = self.model.compute_parameter_norm()
-        self.logger.log_metric(weight_norm, "train/weight_norm", self.step)
-        self.logger.log_metric(bias_norm, "train/bias_norm", self.step)
+        if self.log_norm_interval and self.step % self.log_norm_interval == 0:
+            weight_norm, bias_norm = self.model.compute_parameter_norm()
+            self.logger.log_metric(weight_norm, "train/weight_norm", self.step)
+            self.logger.log_metric(bias_norm, "train/bias_norm", self.step)
     
     def test_step(self, batch: dict):
         x = batch['x'].to(self.device)

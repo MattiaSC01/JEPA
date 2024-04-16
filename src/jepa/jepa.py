@@ -1,3 +1,4 @@
+from typing import Optional
 import torch
 from torch import nn
 from copy import deepcopy
@@ -8,6 +9,8 @@ from .utils import sequential_from_string, set_seed
 
 # TODO: create methods to monitor relevant metrics 
 #       (e.g. overlap encoder-ema, norms, etc.)
+# TODO: jepa training is slow as hell rn. Probably due to copying the weights.
+#       fix that. If still slow, profile and optimize.
 
 
 class Jepa(nn.Module):
@@ -85,13 +88,17 @@ class Jepa(nn.Module):
 
 
 class JepaCriterion(nn.Module):
-    def __init__(self, re: nn.Module, sparsity_weight: float = 0.0):
+    def __init__(
+            self,
+            re: Optional[nn.Module] = None,
+            sparsity_weight: float = 0.0
+        ):
         """
         :param re: reconstruction error module (e.g. nn.MSELoss)
         """
         super().__init__()
         if re is None:
-            re = nn.MSELoss()
+            re = nn.MSELoss(reduction="mean")
         self.re = re
         self.sparsity_weight = sparsity_weight
 
@@ -105,7 +112,7 @@ class JepaCriterion(nn.Module):
         encoder_output = output["encoder_output"]
         predictor_output = output["predictor_output"]
         re = self.re(predictor_output, ema_output)
-        latent_l1norm = nn.functional.norm(encoder_output, p=1)
+        latent_l1norm = torch.norm(encoder_output, p=1).mean()
         loss = re + self.sparsity_weight * latent_l1norm
         return {"loss": loss, "re": re, "latent_l1norm": latent_l1norm}
     

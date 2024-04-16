@@ -130,13 +130,17 @@ class AutoEncoder(nn.Module):
 
 
 class AutoencoderCriterion(nn.Module):
-    def __init__(self, re: nn.Module, sparsity_weight: float = 0.0):
+    def __init__(
+            self,
+            re: Optional[nn.Module] = None,
+            sparsity_weight: float = 0.0,
+        ):
         """
         :param re: reconstruction error criterion (e.g. nn.MSELoss)
         """
         super().__init__()
         if re is None:
-            re = nn.MSELoss()
+            re = nn.MSELoss(reduction="mean")
         self.re = re
         self.sparsity_weight = sparsity_weight
     
@@ -149,7 +153,7 @@ class AutoencoderCriterion(nn.Module):
         x = batch["x"]
         x_hat, z = output["x_hat"], output["z"]
         re = nn.functional.mse_loss(x_hat, x)
-        latent_l1norm = nn.functional.norm(z, p=1)
+        latent_l1norm = torch.norm(z, p=1).mean()
         loss = re + self.sparsity_weight * latent_l1norm
         return {"loss": loss, "re": re, "latent_l1norm": latent_l1norm}
 
