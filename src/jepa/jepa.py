@@ -47,7 +47,7 @@ class Jepa(nn.Module):
         """
         TODO: make this more efficient: avoid copying the weights, rather update
               them in-place considering momentum and lr of self.encoder. Might 
-              require a custom optimizer.
+              require a custom optimizer, or passing the gradients around (ugh).
         Update weights of the EMA encoder.
         :param alpha: momentum for ema update. If 0, just copy the weights.
         """
@@ -129,7 +129,6 @@ class JepaTrainer(Trainer):
         self.alpha = alpha
     
     def train_step(self, batch: dict) -> dict:
-        print("step")
         loss = super().train_step(batch)
         self.model.update_ema(self.alpha)
         return loss
