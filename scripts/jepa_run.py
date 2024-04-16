@@ -3,8 +3,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 from jepa.utils import set_seed
 from jepa.dataset import load_mnist, JepaDataset
-from jepa.jepa import Jepa, JepaCriterion
-from jepa.trainer import Trainer
+from jepa.jepa import Jepa, JepaCriterion, JepaTrainer
 from jepa.sam import SAM
 
 
@@ -29,6 +28,7 @@ optimizer_class = "adamw"
 rho = 0.05
 seed = 30
 target_loss = 0.00
+alpha = 0.99
 print("Using device: ", device)
 
 
@@ -96,5 +96,5 @@ train_config = {
 }
 
 
-trainer = Trainer(**train_config)
+trainer = JepaTrainer(alpha=alpha, **train_config)
 trainer.train()

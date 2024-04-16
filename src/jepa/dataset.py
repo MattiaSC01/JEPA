@@ -274,7 +274,6 @@ def load_mnist(
     return dataset, metadata
 
 
-# TODO: fix this like for MNIST (use different dataset class)
 def load_cifar(
     train: bool = True,
     log_to_wandb: bool = False,

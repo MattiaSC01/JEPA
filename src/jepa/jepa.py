@@ -4,6 +4,7 @@ from torch import nn
 from copy import deepcopy
 import os
 import json
+from .trainer import Trainer
 from .utils import sequential_from_string, set_seed
 
 
@@ -23,6 +24,7 @@ class Jepa(nn.Module):
         super().__init__()
         self.encoder = encoder
         self.predictor = predictor
+        self.initialize_weights(seed)
         self.ema = deepcopy(encoder)
         for param in self.ema.parameters():
             param.requires_grad = False
@@ -35,7 +37,6 @@ class Jepa(nn.Module):
                 if isinstance(layer, nn.Linear):
                     nn.init.xavier_normal_(layer.weight)
                     nn.init.zeros_(layer.bias)
-        self.update_ema(0)  # copy weights from encoder to ema
 
     def forward(self, x):
         encoder_output = self.encoder(x)
@@ -122,3 +123,23 @@ class JepaCriterion(nn.Module):
             "reconstruction_error": type(self.re).__name__,
             "sparsity_weight": self.sparsity_weight
         }
+
+
+class JepaTrainer(Trainer):
+    def __init__(self, alpha: float = 0.99, **kwargs):
+        super().__init__(**kwargs)
+        self.alpha = alpha
+    
+    def train_step(self, batch: dict) -> dict:
+        x = batch['x'].to(self.device)
+        output = self.model(x)
+        losses = self.criterion(output, batch)
+        loss = losses["loss"]
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+        self.model.update_ema(self.alpha)  # update EMA
+        self.step += 1
+        if self.log_to_wandb:
+            self.log_on_train_step(losses)
+        return loss.item()

@@ -22,7 +22,6 @@ import platform
 
 # TODO: improve how we compute and log validation metrics. Be more systematic
 #       about it, e.g. have a list of callable metrics to compute and log.
-# TODO: consider whether it makes sense to subclass Trainer for each model type.
 # TODO: incorporate (optionally? in a subclass?) evaluation through training a linear
 #       classifier on top of the encoder.
 
@@ -183,7 +182,7 @@ class Trainer:
         }
         return device_info
 
-    def train_step(self, batch: dict):
+    def train_step(self, batch: dict) -> float:
         x = batch['x'].to(self.device)
         output = self.model(x)
         losses = self.criterion(output, batch)
@@ -196,7 +195,7 @@ class Trainer:
             self.log_on_train_step(losses)
         return loss.item()
     
-    def train_step_sam(self, batch: dict):
+    def train_step_sam(self, batch: dict) -> float:
         # first forward-backward pass; use original weights w.
         x = batch['x'].to(self.device)
         output = self.model(x)
@@ -217,7 +216,7 @@ class Trainer:
             self.log_on_train_step(losses)  # log loss from first pass
         return loss.item()
     
-    def train_epoch(self):
+    def train_epoch(self) -> float:
         self.model.train()
         loss = 0.0
         for batch in self.train_loader:
