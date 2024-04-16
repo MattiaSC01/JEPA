@@ -11,11 +11,10 @@ import copy
 #       trains a linear predictor on top of the frozen encoder.
 
 
-class Eval:
+class EvalAE:
     """
     This class groups together a bunch of useful static methods for
     evalutation of autoencoders.
-    TODO: it's stupid to have these as a class. Just make them standalone functions.
     """
     @staticmethod
     @torch.no_grad()
@@ -46,7 +45,7 @@ class Eval:
         test_loss = 0
         for idx, batch in enumerate(data_loader):
             x = batch['x'].to(device)
-            noisy_data = Eval.corrupt_data(x, noise_strength, noise_type="gaussian-multiplicative")
+            noisy_data = EvalAE.corrupt_data(x, noise_strength, noise_type="gaussian-multiplicative")
             output = model(noisy_data)
             test_loss += criterion(output, batch)['loss'].item()
             if idx + 1 >= num_batches:
@@ -111,8 +110,8 @@ class Eval:
         original_state = copy.deepcopy(model.state_dict())
         for noise_strength in noise_strengths:
             for _ in range(n_iters):
-                Eval.inject_multiplicative_noise(model, noise_strength, noise_type)
-                loss = Eval.evaluate(
+                EvalAE.inject_multiplicative_noise(model, noise_strength, noise_type)
+                loss = EvalAE.evaluate(
                     model=model, data_loader=data_loader, noise_strength=0.0,
                     criterion=criterion, verbose=False, data_percentage=data_percentage
                 )
@@ -144,7 +143,7 @@ class Eval:
         losses = defaultdict(list)
         for noise_strength in noise_strengths:
             for _ in range(n_iters):
-                loss = Eval.evaluate(
+                loss = EvalAE.evaluate(
                     model=model, data_loader=data_loader, noise_strength=noise_strength,
                     criterion=criterion, verbose=False, data_percentage=data_percentage
                 )
