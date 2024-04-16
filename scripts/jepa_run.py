@@ -37,9 +37,9 @@ log_to_wandb = True
 log_images = True
 log_interval = 10 # batches
 checkpoint_interval = 1 # epochs
-flatness_interval = 1 # epochs
-flatness_iters = 10
-denoising_iters = 3
+# flatness_interval = 1 # epochs
+# flatness_iters = 10
+# denoising_iters = 3
 wandb_project = "jepa-prove"
 
 
@@ -85,10 +85,10 @@ train_config = {
     "log_images": log_images,
     "checkpoint_interval": checkpoint_interval,
     "checkpoint_root_dir": "../checkpoints",
-    "flatness_interval": flatness_interval,
-    "train_set_percentage_for_flatness": 'auto',
-    "flatness_iters": flatness_iters,
-    "denoising_iters": denoising_iters,
+    # "flatness_interval": flatness_interval,
+    # "train_set_percentage_for_flatness": 'auto',
+    # "flatness_iters": flatness_iters,
+    # "denoising_iters": denoising_iters,
     "target_loss": target_loss,
     "seed": seed,
     "compile_model": compile_model,

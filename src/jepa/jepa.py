@@ -4,7 +4,7 @@ from torch import nn
 from copy import deepcopy
 import os
 import json
-from .trainer import Trainer
+from .base_trainer import Trainer
 from .utils import sequential_from_string, set_seed
 
 

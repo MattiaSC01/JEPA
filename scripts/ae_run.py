@@ -4,7 +4,7 @@ from torch.utils.data import DataLoader
 from jepa.utils import set_seed
 from jepa.dataset import load_cifar, load_mnist
 from jepa.autoencoder import AutoEncoder, AutoencoderCriterion
-from jepa.trainer import Trainer
+from jepa.trainer import AutoencoderTrainer
 from jepa.sam import SAM
 
 # shallow: bs 64, lr 0.001, wd 0.1, rho 0.15
@@ -89,5 +89,5 @@ train_config = {
     "wandb_project": wandb_project,
 }
 
-trainer = Trainer(**train_config)
+trainer = AutoencoderTrainer(**train_config)
 trainer.train()

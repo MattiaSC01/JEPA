@@ -62,8 +62,7 @@ class Trainer:
         :param scheduler: learning rate scheduler
         :param log_to_wandb: whether to log to wandb
         :param log_interval: log training loss every log_interval steps
-        :param log_images: whether to log input-output image pairs to wandb.
-        Only works with MNIST-like images for now.
+        :param log_images: whether to allow logging images to wandb (heavy!)
         :param checkpoint_interval: save a checkpoint every checkpoint_interval epochs.
         If None, no checkpoints are saved. To save only at the end of training, set it to epochs.
         :param checkpoint_root_dir: directory to save checkpoints
@@ -253,7 +252,7 @@ class Trainer:
         if self.test_metadata:
             self.logger.add_to_config(self.test_metadata, prefix="test_data")
     
-    def get_training_hyperparameters(self):
+    def get_training_hyperparameters(self) -> dict:
         """
         Return a dictionary with the hyperparameters used for training.
         Does not include the model architecture, nor dataset metadata.
@@ -269,7 +268,6 @@ class Trainer:
             "scheduler": type(self.scheduler).__name__ if self.scheduler else None,
             "train_size": len(self.train_loader.dataset),
             "test_size": len(self.test_loader.dataset) if self.test_loader else None,
-            "train_set_percentage_for_flatness": self.train_set_percentage_for_flatness,
             "target_loss": self.target_loss,
             "seed": self.seed,
             "compile_model": self.compile_model,
@@ -308,3 +306,5 @@ class Trainer:
         "cuda_version": torch.version.cuda,
         }
         return device_info
+
+
