@@ -1,1 +1,6 @@
-# TODO: write requirements!
+torch
+torchvision
+numpy
+matplotlib
+pandas
+wandb

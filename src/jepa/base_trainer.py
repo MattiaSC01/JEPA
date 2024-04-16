@@ -2,17 +2,11 @@ from collections import defaultdict
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
-import numpy as np
-import matplotlib.pyplot as plt
-import pandas as pd
-from typing import Optional, Union
+from typing import Optional
 from .logger import WandbLogger
-from .autoencoder import AutoEncoder
 from .constants import PROJECT, ENTITY
-from .evaluation import EvalAE
 from .sam import SAM
 from .utils import set_seed
-import random
 import os
 import json
 import datetime
