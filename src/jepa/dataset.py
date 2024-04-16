@@ -299,22 +299,27 @@ def load_cifar(
         train=train,
         download=True,
     )
-    dataset.data = 2 * (dataset.data / 255) - 1
-    dataset.data = dataset.data.flatten(start_dim=1)
+    data, targets = dataset.data, dataset.targets
+    data = 2 * (data / 255) - 1
+    data = data.flatten(start_dim=1)
     split = "train" if train else "test"
     metadata = {"id": f"cifar{num_classes}-{split}", "dataset_dir": f"data/cifar-{num_classes}-batches-py", "num_samples": num_samples, "shuffle": shuffle}
     if log_to_wandb:
         filepath = os.path.join(metadata["dataset_dir"], metadata["id"])
         os.makedirs(metadata["dataset_dir"], exist_ok=True)
         print(f"Saving dataset in {filepath}")
-        torch.save(dataset.data, filepath)
+        torch.save(data, filepath)
         print(f"Logging dataset {metadata['id']} to wandb project {project}.")
-        WandbLogger.log_dataset(dataset.data, metadata, project=project, entity=ENTITY)
+        WandbLogger.log_dataset(data, metadata, project=project, entity=ENTITY)
     if shuffle is not None:
         set_seed(shuffle)
-        dataset.data = dataset.data[torch.randperm(len(dataset.data))]
+        perm = torch.randperm(len(data))
+        data = data[perm]
+        targets = targets[perm]
     if num_samples is not None:
-        assert num_samples <= len(dataset.data), "num_samples must be less than the dataset size"
-        dataset.data = dataset.data[:num_samples]
-        dataset.targets = dataset.targets[:num_samples]
-    return DatasetWrapper(dataset, jepa=jepa), metadata
+        assert num_samples <= len(data), "num_samples must be less than the dataset size"
+        data = data[:num_samples]
+        targets = targets[:num_samples]
+    dataset_class = JepaDataset if jepa else AutoencoderDataset
+    dataset = dataset_class(data, targets)
+    return dataset, metadata
