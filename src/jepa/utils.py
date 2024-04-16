@@ -3,8 +3,44 @@ from torch import nn
 import numpy as np
 import random
 import hashlib
+import re
 import os
 import sys
+
+
+def sequential_from_string(s):
+    """
+    :param s: the output of str(model), where model is a nn.Sequential object
+    :return: the nn.Sequential object
+    """
+    layers = []
+    pattern = r"\((\d+)\): (\w+)\((.*?)\)"
+
+    for line in s.split("\n"):
+        match = re.match(pattern, line.strip())
+        if not match:
+            continue
+        layer_idx, layer_type, params = match.groups()
+        print(layer_idx, layer_type, params)
+        param_dict = {}
+        if params:
+            for pair in params.split(", "):
+                key, val = pair.split("=")
+                if val.isdigit() or (val.startswith("-") and val[1:].isdigit()):  # catches integers
+                    val = int(val)
+                else:
+                    try:
+                        val = float(val)
+                    except ValueError:
+                        pass
+                param_dict[key] = val
+                print(key, val)
+
+        layer_class = getattr(nn, layer_type)
+        layer = layer_class(**param_dict)
+        layers.append(layer)
+
+    return nn.Sequential(*layers)
 
 
 def set_seed(seed: int = 42) -> None:
