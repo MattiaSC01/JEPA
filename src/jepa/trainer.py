@@ -1,3 +1,4 @@
+from collections import defaultdict
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
@@ -19,15 +20,11 @@ import socket
 import platform
 
 
-# TODO: make criterion a class, with a method to compute the loss and
-#       a method to get a configuration dictionary. Add logic to trainer
-#       to log the configuration of the criterion.
 # TODO: improve how we compute and log validation metrics. Be more systematic
 #       about it, e.g. have a list of callable metrics to compute and log.
 # TODO: consider whether it makes sense to subclass Trainer for each model type.
 # TODO: incorporate (optionally? in a subclass?) evaluation through training a linear
 #       classifier on top of the encoder.
-# TODO: (big) experiments with sparsity levels using hierarchical dataset.
 
 
 class Trainer:
@@ -61,7 +58,7 @@ class Trainer:
         """
         :param model: pytorch model
         :param optimizer: optimizer
-        :param criterion: loss function. criterion(output: dict, batch: dict) -> torch.Tensor
+        :param criterion: criterion(output: dict, batch: dict) -> dict. Output must contain a "loss" key.
         :param train_loader: DataLoader that yields batches as dictionaries
         :param test_loader: DataLoader that yields batches as dictionaries
         :param dataset_metadata: metadata about the dataset
@@ -95,7 +92,7 @@ class Trainer:
             assert test_loader is not None, "If train_set_percentage_for_flatness is 'auto', test_loader must be provided."
             train_set_percentage_for_flatness = min(len(test_loader.dataset) / len(train_loader.dataset), 1.0)
         if target_loss is None:
-            target_loss = 0.0
+            target_loss = - float("inf")  # no early stopping
         if wandb_project is None:
             wandb_project = PROJECT
         self.model = model
@@ -140,7 +137,7 @@ class Trainer:
             "max_epochs": self.max_epochs,
             "weight_decay": self.optimizer.param_groups[0]['weight_decay'],
             "optimizer": type(self.optimizer).__name__,
-            "criterion": type(self.criterion).__name__,
+            "criterion": self.criterion.get_config(),
             "scheduler": type(self.scheduler).__name__ if self.scheduler else None,
             "train_size": len(self.train_loader.dataset),
             "test_size": len(self.test_loader.dataset) if self.test_loader else None,
@@ -187,20 +184,22 @@ class Trainer:
     def train_step(self, batch: dict):
         x = batch['x'].to(self.device)
         output = self.model(x)
-        loss = self.criterion(output, batch)
+        losses = self.criterion(output, batch)
+        loss = losses["loss"]
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
         self.step += 1
         if self.log_to_wandb:
-            self.log_on_train_step(loss)
+            self.log_on_train_step(losses)
         return loss.item()
     
     def train_step_sam(self, batch: dict):
         # first forward-backward pass; use original weights w.
         x = batch['x'].to(self.device)
         output = self.model(x)
-        loss = self.criterion(output, batch)
+        losses = self.criterion(output, batch)
+        loss = losses["loss"]
         self.optimizer.zero_grad()
         loss.backward()
         # move to w + e(w)
@@ -208,12 +207,12 @@ class Trainer:
         # second forward-backward pass; use w + e(w)
         self.optimizer.zero_grad()
         output = self.model(x)
-        self.criterion(output, batch).backward()
+        self.criterion(output, batch)["loss"].backward()
         # move back to w and use base optimizer to update weights.
         self.optimizer.second_step()
         self.step += 1
         if self.log_to_wandb:
-            self.log_on_train_step(loss)
+            self.log_on_train_step(losses)  # log loss from first pass
         return loss.item()
     
     def train_epoch(self):
@@ -252,10 +251,14 @@ class Trainer:
             artifact_name = f"chkpt-{self.train_metadata['id']}"
             self.logger.log_checkpoint(chkpt_dir, artifact_name)
     
-    def log_on_train_step(self, loss):
+    def log_on_train_step(self, losses):
+        """
+        :param losses: dictionary with loss values
+        """
         if self.step % self.log_interval != 0:
             return
-        self.logger.log_metric(loss.item(), "train/loss", self.step)
+        for key, value in losses.items():
+            self.logger.log_metric(value.item(), f"train/{key}", self.step)
         weight_norm, bias_norm = self.model.compute_parameter_norm()
         self.logger.log_metric(weight_norm, "train/weight_norm", self.step)
         self.logger.log_metric(bias_norm, "train/bias_norm", self.step)
@@ -263,25 +266,32 @@ class Trainer:
     def test_step(self, batch: dict):
         x = batch['x'].to(self.device)
         output = self.model(x)
-        loss = self.criterion(output, batch)
-        return loss.item()
+        losses = self.criterion(output, batch)
+        return losses
     
     @torch.no_grad()
     def test_epoch(self):
         self.model.eval()
-        loss = 0.0
+        avg_losses = defaultdict(float)
         for batch in self.test_loader:
-            loss += self.test_step(batch)
-        loss /= len(self.test_loader)
+            losses = self.test_step(batch)
+            for key, value in losses.items():
+                avg_losses[key] += value.item()
+        for key in avg_losses.keys():
+            avg_losses[key] /= len(self.test_loader)
         if self.log_to_wandb:
-            self.logger.log_metric(loss, "val/loss", self.step)
-            if self.log_images:
-                self.log_images_to_wandb(split="val")
-                self.log_images_to_wandb(split="train")
+            self.log_on_test_epoch(avg_losses)
         if self.epoch % self.flatness_interval == 0:
             self.handle_flatness()
             self.handle_denoising()
-        return loss
+        return losses["loss"]
+    
+    def log_on_test_epoch(self, avg_losses):
+        for key, value in avg_losses.items():
+            self.logger.log_metric(value, f"val/{key}", self.step)
+        if self.log_images:
+            self.log_images_to_wandb(split="val")
+            self.log_images_to_wandb(split="train")
     
     def handle_flatness(self):
         sigmas = np.linspace(0, 0.15, 10)

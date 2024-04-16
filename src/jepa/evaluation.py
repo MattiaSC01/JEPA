@@ -22,8 +22,8 @@ class Eval:
     def evaluate(
             model: nn.Module,
             data_loader: DataLoader,
+            criterion: nn.Module,
             noise_strength: float = 0.0,
-            criterion: nn.Module = nn.MSELoss(),
             verbose: bool = True,
             data_percentage: float = 1.0,
     ) -> float:
@@ -32,9 +32,9 @@ class Eval:
         mode, no_grad, and moving data to the model's device.
         :param model: The model to evaluate
         :param data_loader: The test set to evaluate on
+        :param criterion: criterion(output: dict, batch: dict) -> dict. Output must contain a "loss" key.
         :param noise_strength: Add Gaussian noise with this standard deviation
         to the input data. If nonzero, this evaluates denoising capabilities.
-        :param criterion: The loss function to use.
         :param verbose: Whether to log
         :param data_percentage: Use only this percentage of the data. Useful for
         large datasets.
@@ -48,7 +48,7 @@ class Eval:
             x = batch['x'].to(device)
             noisy_data = Eval.corrupt_data(x, noise_strength, noise_type="gaussian-multiplicative")
             output = model(noisy_data)
-            test_loss += criterion(output, batch).item()
+            test_loss += criterion(output, batch)['loss'].item()
             if idx + 1 >= num_batches:
                 break
         test_loss /= num_batches

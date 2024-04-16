@@ -84,21 +84,34 @@ class Jepa(nn.Module):
         return jepa, metadata
 
 
-def get_jepa_loss(sparsity_weight: float = 0.0):
-    """
-    Build the loss function for the JEPA.
-    Needed to have the correct criterion signature for the Trainer.
-    """
-    def jepa_loss(output: dict, batch: dict):
+class JepaCriterion(nn.Module):
+    def __init__(self, re: nn.Module, sparsity_weight: float = 0.0):
+        """
+        :param re: reconstruction error module (e.g. nn.MSELoss)
+        """
+        super().__init__()
+        if re is None:
+            re = nn.MSELoss()
+        self.re = re
+        self.sparsity_weight = sparsity_weight
+
+    def forward(self, output: dict, batch: dict) -> dict:
         """
         :param output: dict with keys "encoder_output", "predictor_output", "ema_output"
+        :param batch: ignored
+        :return: dict with keys "loss", "re", "latent_l1norm"
         """
         ema_output = output["ema_output"]
         encoder_output = output["encoder_output"]
         predictor_output = output["predictor_output"]
-        mse = nn.functional.mse_loss(predictor_output, ema_output)
-        if sparsity_weight == 0.0:
-            return mse
-        sparsity_penalty = sparsity_weight * nn.functional.norm(encoder_output, p=1)
-        return mse + sparsity_penalty
-    return jepa_loss
+        re = self.re(predictor_output, ema_output)
+        latent_l1norm = nn.functional.norm(encoder_output, p=1)
+        loss = re + self.sparsity_weight * latent_l1norm
+        return {"loss": loss, "re": re, "latent_l1norm": latent_l1norm}
+    
+    def get_config(self) -> dict:
+        return {
+            "criterion": type(self).__name__,
+            "reconstruction_error": type(self.re).__name__,
+            "sparsity_weight": self.sparsity_weight
+        }

@@ -129,20 +129,33 @@ class AutoEncoder(nn.Module):
         return architecture
 
 
-def get_autoencoder_loss(sparsity_weight: float = 0.0):
-    """
-    Build the loss function for the autoencoder.
-    Needed to have the correct criterion signature for the Trainer.
-    """
-    def autoencoder_loss(output: dict, batch: dict):
+class AutoencoderCriterion(nn.Module):
+    def __init__(self, re: nn.Module, sparsity_weight: float = 0.0):
+        """
+        :param re: reconstruction error criterion (e.g. nn.MSELoss)
+        """
+        super().__init__()
+        if re is None:
+            re = nn.MSELoss()
+        self.re = re
+        self.sparsity_weight = sparsity_weight
+    
+    def forward(self, output: dict, batch: dict) -> dict:
         """
         :param output: dict with keys "x_hat", "z"
+        :param batch: dict with key "x"
+        :return: dict with keys "loss", "re", "latent_l1norm"
         """
         x = batch["x"]
         x_hat, z = output["x_hat"], output["z"]
-        mse = nn.functional.mse_loss(x_hat, x)
-        if sparsity_weight == 0.0:
-            return mse
-        sparsity_penalty = sparsity_weight * nn.functional.norm(z, p=1)
-        return nn.functional.mse_loss(x_hat, x)
-    return autoencoder_loss
+        re = nn.functional.mse_loss(x_hat, x)
+        latent_l1norm = nn.functional.norm(z, p=1)
+        loss = re + self.sparsity_weight * latent_l1norm
+        return {"loss": loss, "re": re, "latent_l1norm": latent_l1norm}
+
+    def get_config(self) -> dict:
+        return {
+            "criterion": type(self).__name__,
+            "reconstruction_error": type(self.re).__name__,
+            "sparsity_weight": self.sparsity_weight
+        }
