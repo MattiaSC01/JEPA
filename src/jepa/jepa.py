@@ -1,10 +1,13 @@
 import torch
 from torch import nn
 from copy import deepcopy
+import os
+import json
+from .utils import sequential_from_string
 
 
-# TODO: Log detailes of the model architecture
 # TODO: allow making checkpoints
+# TODO: method to initialize weights
 # TODO: create methods to monitor relevant metrics (e.g. overlap encoder-ema, norms, etc.)
 
 
@@ -34,6 +37,37 @@ class Jepa(nn.Module):
         """
         for ema_param, param in zip(self.ema.parameters(), self.encoder.parameters()):
             ema_param.copy_((1 - alpha) * param + alpha * ema_param)
+
+    def get_architecture(self) -> dict:
+        """
+        Return a dictionary encoding the model's architecture, for logging
+        and to easily rebuild the model.
+        """
+        architecture = {
+            "encoder": str(self.encoder),
+            "predictor": str(self.predictor),
+        }
+        return architecture
+    
+    @classmethod
+    def from_pretrained(cls, chkpt_dir: str, device: str = "cpu") -> tuple["Jepa", dict]:
+        """
+        Instantiate a JEPA model from a checkpoint and load its weights.
+        Assumes the checkpoint structure is the same as created by the Trainer:
+        - metadata.json is a dict with a key "architecture" containing the output
+            of get_architecture()
+        - weights.pt contains the model's state_dict as saved by torch.save.
+        """
+        metadata_path = os.path.join(chkpt_dir, "metadata.json")
+        weights_path = os.path.join(chkpt_dir, "weights.pt")
+        with open(metadata_path, "r") as f:
+            metadata = json.load(f)
+        architecture = metadata["architecture"]
+        encoder = sequential_from_string(architecture["encoder"])
+        predictor = sequential_from_string(architecture["predictor"])
+        jepa = cls(encoder, predictor)
+        jepa.load_state_dict(torch.load(weights_path, map_location=device))
+        return jepa, metadata
 
 
 def get_jepa_loss(sparsity_weight: float = 0.0):

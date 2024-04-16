@@ -8,39 +8,61 @@ import os
 import sys
 
 
+def _extract_params(param_string: str) -> dict:
+    if not param_string:
+        return [], {}
+    positional_params = []
+    key_value_params = {}
+    pattern = r", (?![^\(\)]*\))"  # split at commas not inside parentheses
+    split_result = re.split(pattern, param_string)
+    for pair in split_result:
+        if len(pair.split("=")) == 1:
+            positional = True
+            val = pair
+        else:
+            positional = False
+            key, val = pair.split("=")
+        try:
+            val = eval(val)
+        except NameError:
+            pass
+        if positional:
+            positional_params.append(val)
+        else:
+            key_value_params[key] = val
+    # print(positional_params, key_value_params)
+    return positional_params, key_value_params
+
+
 def sequential_from_string(s):
     """
     :param s: the output of str(model), where model is a nn.Sequential object
     :return: the nn.Sequential object
     """
     layers = []
-    pattern = r"\((\d+)\): (\w+)\((.*?)\)"
-
+    pattern = r"\((\d+)\): (\w+)\((.*)\)"
     for line in s.split("\n"):
         match = re.match(pattern, line.strip())
         if not match:
             continue
-        layer_idx, layer_type, params = match.groups()
-        print(layer_idx, layer_type, params)
-        param_dict = {}
-        if params:
-            for pair in params.split(", "):
-                key, val = pair.split("=")
-                if val.isdigit() or (val.startswith("-") and val[1:].isdigit()):  # catches integers
-                    val = int(val)
-                else:
-                    try:
-                        val = float(val)
-                    except ValueError:
-                        pass
-                param_dict[key] = val
-                print(key, val)
-
+        layer_idx, layer_type, param_string = match.groups()
+        # print(layer_idx, layer_type, param_string)
+        positional_params, key_value_params = _extract_params(param_string)
         layer_class = getattr(nn, layer_type)
-        layer = layer_class(**param_dict)
+        layer = layer_class(*positional_params, **key_value_params)
         layers.append(layer)
-
     return nn.Sequential(*layers)
+
+
+def have_same_weights(model1: nn.Module, model2: nn.Module) -> bool:
+    for p1, p2 in zip(model1.parameters(), model2.parameters()):
+        try:  # worried about shape mismatch or different layer types
+            if p1.data.ne(p2.data).sum() > 0:
+                return False
+        except Exception as e:  # TODO: catch a more specific exception
+            print(e)
+            return False
+    return True
 
 
 def set_seed(seed: int = 42) -> None:

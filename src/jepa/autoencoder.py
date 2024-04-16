@@ -116,7 +116,8 @@ class AutoEncoder(nn.Module):
     
     def get_architecture(self) -> dict:
         """
-        Return a dictionary encoding the model's architecture, for logging.
+        Return a dictionary encoding the model's architecture, for logging and
+        to easily rebuild the model.
         """
         architecture = {
             "input_dim": self.input_dim,
