@@ -3,22 +3,36 @@ from torch import nn
 from copy import deepcopy
 import os
 import json
-from .utils import sequential_from_string
+from .utils import sequential_from_string, set_seed
 
 
-# TODO: allow making checkpoints
-# TODO: method to initialize weights
-# TODO: create methods to monitor relevant metrics (e.g. overlap encoder-ema, norms, etc.)
+# TODO: create methods to monitor relevant metrics 
+#       (e.g. overlap encoder-ema, norms, etc.)
 
 
 class Jepa(nn.Module):
-    def __init__(self, encoder: nn.Module, predictor: nn.Module):
+    def __init__(
+            self,
+            encoder: nn.Module,
+            predictor: nn.Module,
+            seed: int = 42,
+    ):
         super().__init__()
         self.encoder = encoder
         self.predictor = predictor
         self.ema = deepcopy(encoder)
         for param in self.ema.parameters():
             param.requires_grad = False
+
+    def initialize_weights(self, seed: int):
+        # TODO: consider more general architectures (for now, we fall back to default init except for Linear layers)
+        set_seed(seed)  # unique seed at the beginning --> change in any module will affect all
+        for module in [self.encoder, self.predictor]:
+            for layer in module:
+                if isinstance(layer, nn.Linear):
+                    nn.init.xavier_normal_(layer.weight)
+                    nn.init.zeros_(layer.bias)
+        self.update_ema(0)  # copy weights from encoder to ema
 
     def forward(self, x):
         encoder_output = self.encoder(x)
@@ -33,7 +47,7 @@ class Jepa(nn.Module):
               them in-place considering momentum and lr of self.encoder. Might 
               require a custom optimizer.
         Update weights of the EMA encoder.
-        :param alpha: momentum for ema update
+        :param alpha: momentum for ema update. If 0, just copy the weights.
         """
         for ema_param, param in zip(self.ema.parameters(), self.encoder.parameters()):
             ema_param.copy_((1 - alpha) * param + alpha * ema_param)

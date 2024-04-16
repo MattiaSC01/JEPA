@@ -12,7 +12,8 @@ class AutoEncoder(nn.Module):
     Architecture is symmetric: encoder and decoder have the same
     linear layers, but in reverse order.
     """
-    def __init__(self,
+    def __init__(
+            self,
             input_dim: int,
             encoder_hidden: list[int],
             activation: Optional[str] = None,
