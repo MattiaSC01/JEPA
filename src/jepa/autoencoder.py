@@ -153,7 +153,7 @@ class AutoencoderCriterion(nn.Module):
         x = batch["x"]
         x_hat, z = output["x_hat"], output["z"]
         re = nn.functional.mse_loss(x_hat, x)
-        latent_l1norm = torch.norm(z, p=1).mean()
+        latent_l1norm = torch.abs(z).mean()
         loss = re + self.sparsity_weight * latent_l1norm
         return {"loss": loss, "re": re, "latent_l1norm": latent_l1norm}
 

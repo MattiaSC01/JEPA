@@ -111,7 +111,7 @@ class JepaCriterion(nn.Module):
         encoder_output = output["encoder_output"]
         predictor_output = output["predictor_output"]
         re = self.re(predictor_output, ema_output)
-        latent_l1norm = torch.norm(encoder_output, p=1).mean()
+        latent_l1norm = torch.abs(encoder_output).mean()
         loss = re + self.sparsity_weight * latent_l1norm
         return {"loss": loss, "re": re, "latent_l1norm": latent_l1norm}
     
