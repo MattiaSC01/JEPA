@@ -4,7 +4,7 @@ from torch.utils.data import DataLoader
 from jepa.utils import set_seed
 from jepa.dataset import load_cifar, load_mnist
 from jepa.autoencoder import AutoEncoder, AutoencoderCriterion
-from jepa.base_trainer import AutoencoderTrainer
+from jepa.ae_trainer import AutoencoderTrainer
 from jepa.sam import SAM
 
 # shallow: bs 64, lr 0.001, wd 0.1, rho 0.15
@@ -21,7 +21,7 @@ batch_size = 64
 lr = 0.0005
 weight_decay = 0.1
 sparsity_weight = 0.0
-max_epochs = 2
+max_epochs = 10
 device = "cpu" if not torch.cuda.is_available() else "cuda"
 compile_model = True
 base_optimizer = torch.optim.AdamW
@@ -36,8 +36,8 @@ print("Using device: ", device)
 log_to_wandb = True
 log_images = True
 log_interval = 10 # batches
-checkpoint_interval = 1 # epochs
-flatness_interval = 1 # epochs
+checkpoint_interval = max_epochs # epochs
+flatness_interval = None # epochs
 flatness_iters = 10
 denoising_iters = 3
 wandb_project = "jepa-prove"

@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 import numpy as np
+import matplotlib.pyplot as plt
 import random
 import hashlib
 import re
@@ -52,6 +53,33 @@ def sequential_from_string(s):
         layer = layer_class(*positional_params, **key_value_params)
         layers.append(layer)
     return nn.Sequential(*layers)
+
+
+def plot_torch_images(images, title=""):
+    """
+    :param images: three options:
+    - tensor of shape (batch_size, channels, height, width)
+    - tensor of shape (channels, height, width)
+    - list of tensors of size (channels, height, width)
+    """
+    gray = False
+    if isinstance(images, torch.Tensor):
+        match images.ndim:
+            case 3:
+                images = [images]
+            case 2:
+                images = [images.unsqueeze(0)]
+                gray = True
+    nrows = int(len(images) ** 0.5)
+    ncols = len(images) // nrows + (len(images) % nrows > 0)
+    fig, axes = plt.subplots(nrows, ncols, figsize=(ncols * 3, nrows * 3))
+    ravel = np.ravel(axes)
+    for i in range(len(images)):
+        ax = ravel[i]
+        image = images[i].cpu().detach().numpy().transpose(1, 2, 0)
+        ax.imshow(image, cmap="gray" if gray else None)
+        ax.axis("off")
+    fig.suptitle(title)
 
 
 def have_same_weights(model1: nn.Module, model2: nn.Module) -> bool:

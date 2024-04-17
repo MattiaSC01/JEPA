@@ -60,6 +60,7 @@ class Jepa(nn.Module):
         and to easily rebuild the model.
         """
         architecture = {
+            "type": "Jepa",
             "encoder": str(self.encoder),
             "predictor": str(self.predictor),
         }

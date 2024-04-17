@@ -13,14 +13,13 @@ from jepa.sam import SAM
 # fixed hyperparams
 N = 784
 B = 30
-hidden_layers = [N, B]  # from first hidden to bottleneck, extrema included
 train_size = 16384
 test_size = 2048
 batch_size = 64
 lr = 0.001
 weight_decay = 0.1
 sparsity_weight = 0.0
-max_epochs = 10
+max_epochs = 30
 device = "cpu" if not torch.cuda.is_available() else "cuda"
 compile_model = True
 base_optimizer = torch.optim.AdamW
@@ -36,7 +35,7 @@ print("Using device: ", device)
 log_to_wandb = True
 log_images = True
 log_interval = 10 # batches
-checkpoint_interval = 1 # epochs
+checkpoint_interval = max_epochs # epochs
 wandb_project = "jepa-prove"
 
 

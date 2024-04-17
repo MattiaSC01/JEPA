@@ -121,6 +121,7 @@ class AutoEncoder(nn.Module):
         to easily rebuild the model.
         """
         architecture = {
+            "type": "AutoEncoder",
             "input_dim": self.input_dim,
             "hidden_layers": self.encoder_hidden,
             "activation": self.activation,

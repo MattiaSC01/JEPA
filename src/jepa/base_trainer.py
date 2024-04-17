@@ -212,7 +212,8 @@ class Trainer:
         return losses["loss"].item()
     
     def make_checkpoint(self):
-        chkpt_dir = os.path.join(self.checkpoint_root_dir, self.train_metadata["id"])
+        architecture = self.model.get_architecture()["type"]
+        chkpt_dir = os.path.join(self.checkpoint_root_dir, architecture, self.train_metadata["id"])
         os.makedirs(chkpt_dir, exist_ok=True)
         chkpt_metadata = {
             "step": self.step,
@@ -223,6 +224,7 @@ class Trainer:
             "hyperparameters": self.get_training_hyperparameters(),
             "device": self.get_device_info(),
             "train_set": self.train_metadata,
+            "test_set": self.test_metadata,
         }
         with open(os.path.join(chkpt_dir, "metadata.json"), "w") as f:
             json.dump(chkpt_metadata, f)
