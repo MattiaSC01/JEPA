@@ -3,10 +3,10 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from typing import Optional
-from .logger import WandbLogger
-from .constants import PROJECT, ENTITY
-from .sam import SAM
-from .utils import set_seed
+from ..logger import WandbLogger
+from ..constants import PROJECT, ENTITY
+from ..sam import SAM
+from ..utils import set_seed
 import os
 import json
 import datetime
@@ -72,7 +72,6 @@ class Trainer:
             target_loss = - float("inf")  # no early stopping
         if wandb_project is None:
             wandb_project = PROJECT
-        log_norm_interval = log_interval * 10 if hasattr(model, "compute_parameter_norm") else None
         self.model = model
         self.optimizer = optimizer
         self.criterion = criterion
@@ -85,7 +84,6 @@ class Trainer:
         self.scheduler = scheduler
         self.log_to_wandb = log_to_wandb
         self.log_interval = log_interval
-        self.log_norm_interval = log_norm_interval
         self.log_images = log_images
         self.checkpoint_interval = checkpoint_interval
         self.checkpoint_root_dir = checkpoint_root_dir
@@ -142,10 +140,6 @@ class Trainer:
             return
         for key, value in losses.items():
             self.logger.log_metric(value.item(), f"train/{key}", self.step)
-        if self.log_norm_interval and self.step % self.log_norm_interval == 0:
-            weight_norm, bias_norm = self.model.compute_parameter_norm()
-            self.logger.log_metric(weight_norm, "train/weight_norm", self.step)
-            self.logger.log_metric(bias_norm, "train/bias_norm", self.step)
     
     def train_epoch(self) -> float:
         self.model.train()

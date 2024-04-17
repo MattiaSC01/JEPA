@@ -11,6 +11,32 @@ import copy
 #       trains a linear predictor on top of the frozen encoder.
 
 
+def norm_of_parameters(model: nn.Module) -> dict:
+    """
+    Compute the l2 norm of weights and biases (separately)
+    of the linear layers of a model. Returns the norms, normalized
+    by the number of parameters.
+    """
+    weight_norm, bias_norm = 0.0, 0.0
+    weight_count, bias_count = 0, 0
+    for p in model.parameters():
+        if not isinstance(p, nn.Linear):
+            continue
+        weight_norm += (p.weight ** 2).sum()
+        bias_norm += (p.bias ** 2).sum()
+        weight_count += p.weight.numel()
+        bias_count += p.bias.numel()
+    weight_norm = weight_norm.sqrt()
+    bias_norm = bias_norm.sqrt()
+    results = {
+        "weight_norm": weight_norm.item(),
+        "bias_norm": bias_norm.item(),
+        "weight_count": weight_count,
+        "bias_count": bias_count,
+    }
+    return results
+
+
 class EvalAE:
     """
     This class groups together a bunch of useful static methods for

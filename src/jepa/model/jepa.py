@@ -4,8 +4,8 @@ from torch import nn
 from copy import deepcopy
 import os
 import json
-from .base_trainer import Trainer
-from .utils import sequential_from_string, set_seed
+from ..utils import sequential_from_string, set_seed
+from ..evaluation import norm_of_parameters
 
 
 # TODO: create methods to monitor relevant metrics 
@@ -85,6 +85,42 @@ class Jepa(nn.Module):
         jepa = cls(encoder, predictor)
         jepa.load_state_dict(torch.load(weights_path, map_location=device))
         return jepa, metadata
+    
+    @torch.no_grad()
+    def encode(self, x):
+        return self.ema(x)
+    
+    @torch.no_grad()
+    def norms_and_similarities(self) -> dict[str, dict]:
+        """
+        Compute the cosine similarity between the encoder and the EMA encoder.
+        Also compute the L2 norms of the weights of both encoders and of the predictor.
+        Consider only the weights of the Linear layers, for now.
+        :return: dictionary with keys "similarity", "predictor_norms", "encoder_norms", "ema_norms"
+        TODO: consider more general architectures.
+        """
+        # N.B: it would be more efficient to compute norms and similarity in the same loop,
+        # but this way we reuse the norm_of_parameters function and vastly simplify the code.
+        predictor_norms = norm_of_parameters(self.predictor)
+        encoder_norms = norm_of_parameters(self.encoder)
+        ema_norms = norm_of_parameters(self.ema)
+        dot_weight, dot_bias = 0.0, 0.0
+        for ema_param, param in zip(self.ema.parameters(), self.encoder.parameters()):
+            if not isinstance(ema_param, nn.Linear):
+                continue
+            assert isinstance(param, nn.Linear), "encoder and ema are assumed to have the same architecture!"
+            dot_weight += (ema_param.weight * param.weight).sum()
+            dot_bias += (ema_param.bias * param.bias).sum()
+        similarity = {}
+        similarity["weight_similarity"]= dot_weight / (encoder_norms["weight_norm"] * ema_norms["weight_norm"])
+        similarity["bias_similarity"] = dot_bias / (encoder_norms["bias_norm"] * ema_norms["bias_norm"])
+        results = {
+            "similarity": similarity,
+            "predictor_norms": predictor_norms,
+            "encoder_norms": encoder_norms,
+            "ema_norms": ema_norms,
+        }
+        return results
 
 
 class JepaCriterion(nn.Module):
@@ -122,14 +158,3 @@ class JepaCriterion(nn.Module):
             "reconstruction_error": type(self.re).__name__,
             "sparsity_weight": self.sparsity_weight
         }
-
-
-class JepaTrainer(Trainer):
-    def __init__(self, alpha: float = 0.99, **kwargs):
-        super().__init__(**kwargs)
-        self.alpha = alpha
-    
-    def train_step(self, batch: dict) -> dict:
-        loss = super().train_step(batch)
-        self.model.update_ema(self.alpha)
-        return loss

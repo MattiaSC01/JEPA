@@ -4,8 +4,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 from typing import Optional, Union
-from .base_trainer import Trainer
-from .evaluation import EvalAE
+from .trainer import Trainer
+from ..model.autoencoder import AutoEncoder
+from ..evaluation import EvalAE, norm_of_parameters
 import random
 
 
@@ -29,6 +30,7 @@ class AutoencoderTrainer(Trainer):
         :param denoising_iters: same as flatness_iters, but for denoising.
         """
         super().__init__(**kwargs)
+        assert isinstance(self.model, AutoEncoder), "AutoencoderTrainer expects an AutoEncoder model."
         if flatness_interval is None:
             flatness_interval = self.max_epochs + 1  # no flatness
         if train_set_percentage_for_flatness == 'auto':
@@ -38,6 +40,16 @@ class AutoencoderTrainer(Trainer):
         self.train_set_percentage_for_flatness = train_set_percentage_for_flatness
         self.flatness_iters = flatness_iters
         self.denoising_iters = denoising_iters
+
+    def log_on_train_step(self, losses):
+        super().log_on_train_step(losses)
+        if self.step % (self.log_interval * 20) == 0:
+            encoder_norms = norm_of_parameters(self.model.encoder)
+            decoder_norms = norm_of_parameters(self.model.decoder)
+            self.logger.log_metric(encoder_norms["weight_norm"] / encoder_norms["weight_count"], "norms/encoder_weight_norm", self.step)
+            self.logger.log_metric(encoder_norms["bias_norm"] / encoder_norms["bias_count"], "norms/encoder_bias_norm", self.step)
+            self.logger.log_metric(decoder_norms["weight_norm"] / decoder_norms["weight_count"], "norms/decoder_weight_norm", self.step)
+            self.logger.log_metric(decoder_norms["bias_norm"] / decoder_norms["bias_count"], "norms/decoder_bias_norm", self.step)
     
     @torch.no_grad()
     def test_epoch(self):

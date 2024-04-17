@@ -3,7 +3,7 @@ from torch import nn
 from typing import Optional
 import os
 import json
-from .utils import set_seed
+from ..utils import set_seed
 
 
 class AutoEncoder(nn.Module):
@@ -92,9 +92,11 @@ class AutoEncoder(nn.Module):
         x_hat = self.decoder(z)
         return {"x_hat": x_hat, "z": z}
     
+    @torch.no_grad()
     def encode(self, x):
         return self.encoder(x)
     
+    @torch.no_grad()
     def decode(self, z):
         return self.decoder(z)
     

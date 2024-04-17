@@ -3,8 +3,8 @@ from torch import nn
 from torch.utils.data import DataLoader
 from jepa.utils import set_seed
 from jepa.dataset import load_cifar, load_mnist
-from jepa.autoencoder import AutoEncoder, AutoencoderCriterion
-from jepa.ae_trainer import AutoencoderTrainer
+from jepa.model.autoencoder import AutoEncoder, AutoencoderCriterion
+from jepa.trainer.ae_trainer import AutoencoderTrainer
 from jepa.sam import SAM
 
 # shallow: bs 64, lr 0.001, wd 0.1, rho 0.15

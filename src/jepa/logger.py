@@ -8,7 +8,7 @@ from collections import defaultdict
 from typing import Union, Optional
 
 
-# TODO: implement a mechanism to clean up local disk space by deleting old runs in the wandb directory
+# TODO: implement a mechanism to clean up local disk space by deleting old runs in the wandb directory (? - dangerous) 
 
 
 class WandbLogger:

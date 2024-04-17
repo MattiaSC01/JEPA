@@ -2,8 +2,9 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from jepa.utils import set_seed
-from jepa.dataset import load_mnist, JepaDataset
-from jepa.jepa import Jepa, JepaCriterion, JepaTrainer
+from jepa.dataset import load_mnist, load_cifar
+from jepa.model.jepa import Jepa, JepaCriterion
+from jepa.trainer.jepa_trainer import JepaTrainer
 from jepa.sam import SAM
 
 
