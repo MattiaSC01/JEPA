@@ -8,15 +8,11 @@ from ..utils import sequential_from_string, set_seed
 from ..evaluation import norm_of_parameters
 
 
-# TODO: create methods to monitor relevant metrics 
-#       (e.g. overlap encoder-ema, norms, etc.)
-
-
 class Jepa(nn.Module):
     def __init__(
             self,
-            encoder: nn.Module,
-            predictor: nn.Module,
+            encoder: nn.Sequential,
+            predictor: nn.Sequential,
             seed: int = 42,
     ):
         super().__init__()
@@ -31,6 +27,7 @@ class Jepa(nn.Module):
         # TODO: consider more general architectures (for now, we fall back to default init except for Linear layers)
         set_seed(seed)  # unique seed at the beginning --> change in any module will affect all
         for module in [self.encoder, self.predictor]:
+            assert isinstance(module, nn.Sequential), "encoder and predictor are assumed to be nn.Sequential!"
             for layer in module:
                 if isinstance(layer, nn.Linear):
                     nn.init.xavier_normal_(layer.weight)
@@ -105,7 +102,7 @@ class Jepa(nn.Module):
         encoder_norms = norm_of_parameters(self.encoder)
         ema_norms = norm_of_parameters(self.ema)
         dot_weight, dot_bias = 0.0, 0.0
-        for ema_param, param in zip(self.ema.parameters(), self.encoder.parameters()):
+        for ema_param, param in zip(self.ema.modules(), self.encoder.modules()):
             if not isinstance(ema_param, nn.Linear):
                 continue
             assert isinstance(param, nn.Linear), "encoder and ema are assumed to have the same architecture!"

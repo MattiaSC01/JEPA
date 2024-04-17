@@ -11,15 +11,16 @@ import copy
 #       trains a linear predictor on top of the frozen encoder.
 
 
+@torch.no_grad()
 def norm_of_parameters(model: nn.Module) -> dict:
     """
     Compute the l2 norm of weights and biases (separately)
     of the linear layers of a model. Returns the norms, normalized
     by the number of parameters.
     """
-    weight_norm, bias_norm = 0.0, 0.0
+    weight_norm, bias_norm = torch.tensor(0.0), torch.tensor(0.0)
     weight_count, bias_count = 0, 0
-    for p in model.parameters():
+    for p in model.modules():
         if not isinstance(p, nn.Linear):
             continue
         weight_norm += (p.weight ** 2).sum()
