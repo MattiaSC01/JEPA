@@ -38,6 +38,7 @@ def train_classifier(
     train_loader: DataLoader,
     test_loader: DataLoader,
     optimizer: torch.optim.Optimizer,
+    criterion: nn.Module,
     epochs: int = 100,
     device: str = "cpu",
 ) -> list[float]:
@@ -47,11 +48,11 @@ def train_classifier(
     :param train_loader: dataloader spitting dicts with keys 'x', 'y'.
     :param test_loader: same as train_loader.
     :param optimizer: Optimizer for training
+    :param criterion: Loss function
     :param epochs: number of epochs to train for
     :param device: device to train on
-    :return: list of accuracies on the test set after each epoch
+    :return: time series of test accuracies, one per epoch
     """
-    criterion = nn.CrossEntropyLoss()
     classifier.to(device)
     accs = []
     for epoch in range(epochs):

@@ -1,12 +1,13 @@
 import torch
 from torch import nn
+from torch.utils.data import DataLoader
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 from typing import Optional, Union
 from .trainer import Trainer
 from ..model.autoencoder import AutoEncoder
-from ..evaluation import EvalAE, norm_of_parameters
+from ..evaluation import EvalAE, norm_of_parameters, build_dataset_of_latents, train_classifier
 import random
 
 
@@ -17,6 +18,7 @@ class AutoencoderTrainer(Trainer):
             train_set_percentage_for_flatness: Union[float, str] = 1.0,
             flatness_iters: int = 5,
             denoising_iters: int = 1,
+            classification_interval: Optional[int] = None,
             **kwargs
         ):
         """
@@ -28,9 +30,13 @@ class AutoencoderTrainer(Trainer):
         :param flatness_iters: number of repetitions to compute flatness. Higher values
         give more accurate results, but take longer to compute.
         :param denoising_iters: same as flatness_iters, but for denoising.
+        :param classification_interval: train a classifier on latents with this frequency (epochs).
+        If None, don't. Requires a test_loader and labelled data.
         """
         super().__init__(**kwargs)
         assert isinstance(self.model, AutoEncoder), "AutoencoderTrainer expects an AutoEncoder model."
+        if classification_interval is None:
+            classification_interval = self.max_epochs + 1  # no classification
         if flatness_interval is None:
             flatness_interval = self.max_epochs + 1  # no flatness
         if train_set_percentage_for_flatness == 'auto':
@@ -40,6 +46,7 @@ class AutoencoderTrainer(Trainer):
         self.train_set_percentage_for_flatness = train_set_percentage_for_flatness
         self.flatness_iters = flatness_iters
         self.denoising_iters = denoising_iters
+        self.classification_interval = classification_interval
 
     def log_on_train_step(self, losses):
         super().log_on_train_step(losses)
@@ -58,8 +65,10 @@ class AutoencoderTrainer(Trainer):
             self.handle_flatness()
             self.handle_denoising()
         if self.log_to_wandb and self.log_images:
-            self.log_images_to_wandb(split="val")
-            self.log_images_to_wandb(split="train")
+            self.log_image_reconstruction_pairs(split="val")
+            self.log_image_reconstruction_pairs(split="train")
+        if self.epoch % self.classification_interval == 0:
+            self.handle_classification()
         return loss
     
     def end_training(self):
@@ -70,7 +79,38 @@ class AutoencoderTrainer(Trainer):
             self.handle_denoising()
         if self.log_to_wandb:
             self.logger.end_run()
-        
+
+    def handle_classification(self):
+        """
+        Use the encoder to create a dataset of latents and train a classifier on it.
+        """
+        train_dl, test_dl = self.build_latent_datasets()
+        accs = self.train_classifier(train_dl, test_dl)
+        best_acc = max(accs)
+        self.logger.log_metric(best_acc, "classification/best_acc", self.step)
+        plt.figure()
+        plt.plot(accs)
+        plt.title("Test accuracy over epochs - linear classifier on latents")
+        self.logger.log_plot("classification/accuracy", self.step)
+        plt.close()        
+
+    def build_latent_datasets(self) -> tuple[DataLoader, DataLoader]:
+        train_latents = build_dataset_of_latents(self.model.encoder, self.train_loader, self.device)
+        test_latents = build_dataset_of_latents(self.model.encoder, self.test_loader, self.device)
+        train_dl = DataLoader(train_latents, batch_size=self.train_loader.batch_size, shuffle=True)
+        test_dl = DataLoader(test_latents, batch_size=self.test_loader.batch_size, shuffle=False)
+        return train_dl, test_dl
+    
+    def train_classifier(self, train_dl: DataLoader, test_dl: DataLoader) -> list:
+        latent_dim = next(iter(train_dl)).shape[1]
+        num_classes = len(train_dl.dataset.labels.unique())
+        classifier = nn.Linear(latent_dim, num_classes)
+        optimizer = torch.optim.AdamW(classifier.parameters(), lr=1e-3, weight_decay=1e-3)
+        criterion = nn.CrossEntropyLoss()
+        accs = train_classifier(classifier=classifier, train_loader=train_dl, test_loader=test_dl, 
+                                optimizer=optimizer, criterion=criterion, device=self.device, max_epochs=10)
+        return accs
+
     def handle_flatness(self):
         sigmas = np.linspace(0, 0.15, 10)
         n_iters = self.flatness_iters
@@ -124,7 +164,7 @@ class AutoencoderTrainer(Trainer):
         self.plot_and_log(losses, split=split, plot_type="denoising")
 
     @torch.no_grad()
-    def log_images_to_wandb(self, split: str = "val", n_images: int = 1):
+    def log_image_reconstruction_pairs(self, split: str = "val", n_images: int = 1):
         """
         Log pairs of (noisy) images and their reconstructions to wandb.
         It calls reassemble_image, which for now only works with MNIST and CIFAR.
