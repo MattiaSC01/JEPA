@@ -37,6 +37,8 @@ log_to_wandb = True
 log_images = True
 log_interval = 10 # batches
 checkpoint_interval = max_epochs # epochs
+classification_interval = 1
+classification_epochs = 3
 wandb_project = "jepa-prove"
 
 
@@ -86,6 +88,8 @@ train_config = {
     "seed": seed,
     "compile_model": compile_model,
     "wandb_project": wandb_project,
+    "classification_interval": classification_interval,
+    "classification_epochs": classification_epochs,
 }
 
 

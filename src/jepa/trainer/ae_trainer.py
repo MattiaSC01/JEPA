@@ -32,8 +32,8 @@ class AutoencoderTrainer(Trainer):
         give more accurate results, but take longer to compute.
         :param denoising_iters: same as flatness_iters, but for denoising.
         :param classification_interval: train a classifier on latents with this frequency (epochs).
-        :param classification_epochs: number of epochs to train the classifier for.
         If None, don't. Requires a test_loader and labelled data.
+        :param classification_epochs: number of epochs to train the classifier for.
         """
         super().__init__(**kwargs)
         assert isinstance(self.model, AutoEncoder), "AutoencoderTrainer expects an AutoEncoder model."
