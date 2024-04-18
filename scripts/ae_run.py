@@ -40,6 +40,7 @@ checkpoint_interval = max_epochs # epochs
 flatness_interval = None # epochs
 flatness_iters = 10
 denoising_iters = 3
+classification_interval = 1
 wandb_project = "jepa-prove"
 
 
@@ -87,6 +88,7 @@ train_config = {
     "seed": seed,
     "compile_model": compile_model,
     "wandb_project": wandb_project,
+    "classification_interval": classification_interval,
 }
 
 trainer = AutoencoderTrainer(**train_config)
