@@ -12,16 +12,17 @@ from jepa.sam import SAM
 
 
 # fixed hyperparams
-N = 784
+load_dataset = load_cifar
+N = 3072
 B = 30
-hidden_layers = [N, B]  # from first hidden to bottleneck, extrema included
+hidden_layers = [B]  # from first hidden to bottleneck, included
 train_size = 16384
 test_size = 2048
 batch_size = 64
 lr = 0.0005
 weight_decay = 0.1
 sparsity_weight = 0.0
-max_epochs = 10
+max_epochs = 50
 device = "cpu" if not torch.cuda.is_available() else "cuda"
 compile_model = True
 base_optimizer = torch.optim.AdamW
@@ -47,8 +48,8 @@ wandb_project = "jepa-prove"
 
 # dataset
 root = "../data"
-train_dataset, train_metadata = load_mnist(train=True, log_to_wandb=False, project=wandb_project, root=root, jepa=False, shuffle=seed, num_samples=train_size)
-test_dataset, test_metadata = load_mnist(train=False, log_to_wandb=False, project=wandb_project, root=root, jepa=False, shuffle=seed, num_samples=test_size)
+train_dataset, train_metadata = load_dataset(train=True, log_to_wandb=False, project=wandb_project, root=root, jepa=False, shuffle=seed, num_samples=train_size)
+test_dataset, test_metadata = load_dataset(train=False, log_to_wandb=False, project=wandb_project, root=root, jepa=False, shuffle=seed, num_samples=test_size)
 train_metadata["use_as"] = "train"
 test_metadata["use_as"] = "test"
 train_loader = DataLoader(train_dataset, batch_size=batch_size)

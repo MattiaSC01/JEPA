@@ -299,6 +299,8 @@ def load_cifar(
         download=True,
     )
     data, targets = dataset.data, dataset.targets
+    data = torch.tensor(data)  # data is a numpy array
+    targets = torch.tensor(targets)  # targets is a list
     data = 2 * (data / 255) - 1
     data = data.flatten(start_dim=1)
     split = "train" if train else "test"

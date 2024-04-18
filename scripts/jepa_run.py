@@ -8,11 +8,9 @@ from jepa.trainer.jepa_trainer import JepaTrainer
 from jepa.sam import SAM
 
 
-# TODO: test!
-
-
 # fixed hyperparams
-N = 784
+load_dataset = load_cifar
+N = 3072
 B = 30
 train_size = 16384
 test_size = 2048
@@ -20,7 +18,7 @@ batch_size = 64
 lr = 0.001
 weight_decay = 0.1
 sparsity_weight = 0.0
-max_epochs = 30
+max_epochs = 20
 device = "cpu" if not torch.cuda.is_available() else "cuda"
 compile_model = True
 base_optimizer = torch.optim.AdamW
@@ -28,7 +26,7 @@ optimizer_class = "adamw"
 rho = 0.05
 seed = 30
 target_loss = 0.00
-alpha = 0.99
+alpha = 0.98
 print("Using device: ", device)
 
 
@@ -44,8 +42,8 @@ wandb_project = "jepa-prove"
 
 # dataset
 root = "../data"
-train_dataset, train_metadata = load_mnist(train=True, log_to_wandb=False, project=wandb_project, root=root, jepa=True, shuffle=seed, num_samples=train_size)
-test_dataset, test_metadata = load_mnist(train=False, log_to_wandb=False, project=wandb_project, root=root, jepa=True, shuffle=seed, num_samples=test_size)
+train_dataset, train_metadata = load_dataset(train=True, log_to_wandb=False, project=wandb_project, root=root, jepa=True, shuffle=seed, num_samples=train_size)
+test_dataset, test_metadata = load_dataset(train=False, log_to_wandb=False, project=wandb_project, root=root, jepa=True, shuffle=seed, num_samples=test_size)
 train_metadata["use_as"] = "train"
 test_metadata["use_as"] = "test"
 train_loader = DataLoader(train_dataset, batch_size=batch_size)
@@ -54,10 +52,10 @@ test_loader = DataLoader(test_dataset, batch_size=test_size)  # be mindful of th
 
 # model
 encoder = torch.nn.Sequential(
-    torch.nn.Linear(N, B),
+    nn.Linear(N, B),
 )
 predictor = torch.nn.Sequential(
-    torch.nn.Linear(B, B),
+    nn.Linear(B, B),
 )
 model = Jepa(encoder=encoder, predictor=predictor, seed=seed)
 if optimizer_class.lower() == "sam":
