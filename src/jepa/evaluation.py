@@ -1,14 +1,95 @@
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 from torch import nn
 import matplotlib.pyplot as plt
 import numpy as np
 from collections import defaultdict
 import copy
+from .dataset import SimpleDataset
 
 
-# TODO: create a function that accepts an encoder and a train_loader and
-#       trains a linear predictor on top of the frozen encoder.
+@torch.no_grad()
+def build_dataset_of_latents(
+    encoder: nn.Module,
+    data_loader: DataLoader,
+    device: str = "cpu",
+) -> Dataset:
+    """
+    Build a dataset of latents produced by an encoder on a dataset
+    :param encoder: model to use
+    :param data_loader: dataloader spitting dicts with keys 'x', 'y'
+    :param device: device to use
+    :return: Dataset of latents and labels, spitting dicts with keys 'x', 'y'.
+    """
+    encoder.to(device).eval()
+    latents = []
+    labels = []
+    for batch in data_loader:
+        x, y = batch['x'].to(device), batch['y'].to(device)
+        latents.append(encoder(x))
+        labels.append(y)
+    latents = torch.cat(latents, dim=0)
+    labels = torch.cat(labels, dim=0)
+    return SimpleDataset(latents, labels)
+
+
+def train_classifier(
+    classifier: nn.Module,
+    train_loader: DataLoader,
+    test_loader: DataLoader,
+    optimizer: torch.optim.Optimizer,
+    epochs: int = 100,
+    device: str = "cpu",
+) -> list[float]:
+    """
+    Train a linear classifier on the provided data.
+    :param classifier: model to train. Must output logits.
+    :param train_loader: dataloader spitting dicts with keys 'x', 'y'.
+    :param test_loader: same as train_loader.
+    :param optimizer: Optimizer for training
+    :param epochs: number of epochs to train for
+    :param device: device to train on
+    :return: list of accuracies on the test set after each epoch
+    """
+    criterion = nn.CrossEntropyLoss()
+    classifier.to(device)
+    accs = []
+    for epoch in range(epochs):
+        classifier.train()
+        for batch in train_loader:
+            optimizer.zero_grad()
+            x, y = batch['x'].to(device), batch['y'].to(device)
+            logits = classifier(x)
+            loss = criterion(logits, y)
+            loss.backward()
+            optimizer.step()
+        accs.append(compute_accuracy(classifier, test_loader))
+    return accs
+
+
+@torch.no_grad()
+def compute_accuracy(
+    classifier: nn.Module,
+    test_loader: DataLoader,
+    device: str = "cpu",
+) -> float:
+    """
+    Compute the accuracy of a classifier on a test set.
+    :param classifier: model to evaluate
+    :param test_loader: dataloader test data. Expects a dict with keys 'x', 'y'.
+    :param device: device to evaluate on
+    :return: accuracy
+    """
+    classifier.to(device).eval()
+    correct = 0
+    total = 0
+    for batch in test_loader:
+        x, y = batch['x'].to(device), batch['y'].to(device)
+        logits = classifier(x)
+        _, predicted = torch.max(logits, 1)  # max returns (values, indices)
+        total += y.size(0)
+        correct += (predicted == y).sum().item()
+    return correct / total
 
 
 @torch.no_grad()

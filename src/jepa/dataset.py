@@ -56,7 +56,7 @@ class JepaDataset(Dataset):
         return {"x": x, "x_hat": x_hat, "y": y}
 
 
-class AutoencoderDataset(Dataset):
+class SimpleDataset(Dataset):
     """
     Simple dataset class for autoencoders.
     """
@@ -269,7 +269,7 @@ def load_mnist(
         assert num_samples <= len(data), "num_samples must be less than the dataset size"
         data = data[:num_samples]
         targets = targets[:num_samples]
-    dataset_class = JepaDataset if jepa else AutoencoderDataset
+    dataset_class = JepaDataset if jepa else SimpleDataset
     dataset = dataset_class(data, targets)
     return dataset, metadata
 
@@ -319,6 +319,6 @@ def load_cifar(
         assert num_samples <= len(data), "num_samples must be less than the dataset size"
         data = data[:num_samples]
         targets = targets[:num_samples]
-    dataset_class = JepaDataset if jepa else AutoencoderDataset
+    dataset_class = JepaDataset if jepa else SimpleDataset
     dataset = dataset_class(data, targets)
     return dataset, metadata
