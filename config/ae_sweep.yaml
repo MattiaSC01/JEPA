@@ -1,0 +1,63 @@
+# linked variables (if you modify one, you probably want to modify the other too):
+# - epochs, flatness_interval, checkpoint_interval, classification_interval
+# - N, hidden_layers, dataset
+
+# change name!
+# change number of runs in sweep.sh!
+
+name: ae-sparsity
+method: grid
+metric:
+  goal: minimize
+  name: val/re
+parameters:
+  batch_size:
+    value: 64
+  lr:
+    value: 0.0005
+  weight_decay:
+    values: [0.01, 0.05, 0.1]
+  sparsity_weight:
+    values: [0.0, 0.5, 1.0, 1.5, 2.0]
+  optimizer:
+    value: adamw
+  rho:
+    value: None
+  hidden_layers:
+    value:
+      - 3072
+      - 300
+  train_size:
+    value: 16384
+  test_size:
+    value: 4096
+  max_epochs:
+    value: 50
+  target_loss:
+    value: 0.0
+  N:
+    value: 3072
+  activation:
+    value: ReLU
+  seed:
+    value: 72
+  log_interval:
+    value: 10
+  log_images:
+    value: False
+  classification_interval:
+    value: 50
+  classification_epochs:
+    value: 10
+  checkpoint_interval:
+    value: 100000000000
+  flatness_interval:
+    value: 100000000000
+  flatness_iters:
+    value: 10
+  denoising_iters:
+    value: 3
+  compile_model:
+    value: True
+  dataset:
+    value: cifar10

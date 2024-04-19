@@ -14,14 +14,14 @@ from jepa.sam import SAM
 # fixed hyperparams
 load_dataset = load_cifar
 N = 3072
-B = 30
+B = 3072
 hidden_layers = [B]  # from first hidden to bottleneck, included
 train_size = 16384
 test_size = 2048
 batch_size = 64
 lr = 0.0005
-weight_decay = 0.1
-sparsity_weight = 0.0
+weight_decay = 0.01
+sparsity_weight = 0.1
 max_epochs = 50
 device = "cpu" if not torch.cuda.is_available() else "cuda"
 compile_model = True

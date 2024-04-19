@@ -1,6 +1,7 @@
 data
 checkpoints
 dataframes
+outputs
 
 __pycache__
 wandb
