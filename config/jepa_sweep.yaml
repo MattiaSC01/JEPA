@@ -1,0 +1,57 @@
+# linked variables (if you modify one, you probably want to modify the other too):
+# - epochs, flatness_interval, checkpoint_interval, classification_interval
+# - N, hidden_layers, dataset
+
+# change name!
+# change number of runs in sweep.sh!
+
+name: jepa
+method: grid
+metric:
+  goal: minimize
+  name: val/re
+parameters:
+  batch_size:
+    value: 64
+  lr:
+    value: 0.0005
+  weight_decay:
+    values: [0.01, 0.05, 0.1]
+  sparsity_weight:
+    value: 0.0
+  alpha:
+    values: [0.9, 0.95, 0.97, 0.98, 0.99, 0.995]
+  optimizer:
+    value: adamw
+  rho:
+    value: None
+  encoder:
+    value: "Sequential(\n  (0): Linear(in_features=3072, out_features=300, bias=True)\n  (1): Tanh()\n)"
+  predictor:
+    value: "Sequential(\n  (0): Linear(in_features=300, out_features=300, bias=True)\n)"
+  train_size:
+    value: 16384
+  test_size:
+    value: 4096
+  max_epochs:
+    value: 50
+  target_loss:
+    value: 0.0
+  N:
+    value: 3072
+  activation:
+    value: ReLU
+  seed:
+    value: 72
+  log_interval:
+    value: 10
+  classification_interval:
+    value: 50
+  classification_epochs:
+    value: 10
+  checkpoint_interval:
+    value: 100000000000
+  compile_model:
+    value: True
+  dataset:
+    value: cifar10
