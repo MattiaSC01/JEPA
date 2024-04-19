@@ -11,22 +11,22 @@ from jepa.sam import SAM
 # fixed hyperparams
 load_dataset = load_cifar
 N = 3072
-B = 30
+B = 300
 train_size = 16384
-test_size = 2048
+test_size = 4096
 batch_size = 64
-lr = 0.001
+lr = 0.0005
 weight_decay = 0.1
 sparsity_weight = 0.0
-max_epochs = 20
+max_epochs = 50
 device = "cpu" if not torch.cuda.is_available() else "cuda"
 compile_model = True
 base_optimizer = torch.optim.AdamW
 optimizer_class = "adamw"
 rho = 0.05
-seed = 30
+seed = 72
 target_loss = 0.00
-alpha = 0.98
+alpha = 0.97
 print("Using device: ", device)
 
 
@@ -35,7 +35,7 @@ log_to_wandb = True
 log_images = True
 log_interval = 10 # batches
 checkpoint_interval = max_epochs # epochs
-classification_interval = 1
+classification_interval = 10
 classification_epochs = 3
 wandb_project = "jepa-prove"
 
@@ -53,6 +53,7 @@ test_loader = DataLoader(test_dataset, batch_size=test_size)  # be mindful of th
 # model
 encoder = torch.nn.Sequential(
     nn.Linear(N, B),
+    nn.Tanh(),
 )
 predictor = torch.nn.Sequential(
     nn.Linear(B, B),

@@ -14,21 +14,21 @@ from jepa.sam import SAM
 # fixed hyperparams
 load_dataset = load_cifar
 N = 3072
-B = 3072
+B = 300
 hidden_layers = [B]  # from first hidden to bottleneck, included
 train_size = 16384
-test_size = 2048
+test_size = 4096
 batch_size = 64
 lr = 0.0005
-weight_decay = 0.01
-sparsity_weight = 0.1
+weight_decay = 0.1
+sparsity_weight = 0.0
 max_epochs = 50
 device = "cpu" if not torch.cuda.is_available() else "cuda"
 compile_model = True
 base_optimizer = torch.optim.AdamW
 optimizer_class = "adamw"
 rho = 0.05
-seed = 30
+seed = 72
 target_loss = 0.00
 print("Using device: ", device)
 
@@ -41,7 +41,7 @@ checkpoint_interval = max_epochs # epochs
 flatness_interval = None # epochs
 flatness_iters = 10
 denoising_iters = 3
-classification_interval = 1
+classification_interval = 10
 classification_epochs = 3
 wandb_project = "jepa-prove"
 
