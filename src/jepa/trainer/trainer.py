@@ -99,8 +99,9 @@ class Trainer:
         torch.compile(self.model)
 
     def train_step(self, batch: dict) -> float:
-        x = batch['x'].to(self.device)
-        output = self.model(x)
+        batch['x'] = batch['x'].to(self.device)
+        batch['y'] = batch['y'].to(self.device)
+        output = self.model(batch['x'])
         losses = self.criterion(output, batch)
         loss = losses["loss"]
         self.optimizer.zero_grad()
@@ -113,7 +114,9 @@ class Trainer:
     
     def train_step_sam(self, batch: dict) -> float:
         # first forward-backward pass; use original weights w.
-        x = batch['x'].to(self.device)
+        batch['x'] = batch['x'].to(self.device)
+        batch['y'] = batch['y'].to(self.device)
+        x = batch['x']
         output = self.model(x)
         losses = self.criterion(output, batch)
         loss = losses["loss"]
@@ -185,8 +188,8 @@ class Trainer:
             self.logger.end_run()
 
     def test_step(self, batch: dict) -> dict:
-        x = batch['x'].to(self.device)
-        output = self.model(x)
+        batch['x'] = batch['x'].to(self.device)
+        output = self.model(batch['x'])
         losses = self.criterion(output, batch)
         return losses
     

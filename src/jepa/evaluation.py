@@ -64,7 +64,7 @@ def train_classifier(
             loss = criterion(logits, y)
             loss.backward()
             optimizer.step()
-        accs.append(compute_accuracy(classifier, test_loader))
+        accs.append(compute_accuracy(classifier, test_loader, device=device))
     return accs
 
 
@@ -100,8 +100,9 @@ def norm_of_parameters(model: nn.Module) -> dict:
     of the linear layers of a model. Returns the norms, normalized
     by the number of parameters.
     """
-    weight_norm, bias_norm = torch.tensor(0.0), torch.tensor(0.0)
-    weight_count, bias_count = 0, 0
+    device = next(model.parameters()).device
+    weight_norm, bias_norm = torch.tensor(0.0, device=device), torch.tensor(0.0, device=device)
+    weight_count, bias_count = torch.tensor(0, device=device), torch.tensor(0, device=device)
     for p in model.modules():
         if not isinstance(p, nn.Linear):
             continue

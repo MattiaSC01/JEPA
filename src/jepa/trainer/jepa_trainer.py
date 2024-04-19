@@ -81,7 +81,7 @@ class JepaTrainer(Trainer):
     def train_classifier(self, train_dl: DataLoader, test_dl: DataLoader) -> list:
         latent_dim = next(iter(train_dl))["x"].shape[1]
         num_classes = len(train_dl.dataset.labels.unique())
-        classifier = nn.Linear(latent_dim, num_classes)
+        classifier = nn.Linear(latent_dim, num_classes).to(self.device)
         optimizer = torch.optim.AdamW(classifier.parameters(), lr=1e-3, weight_decay=1e-3)
         criterion = nn.CrossEntropyLoss()
         accs = train_classifier(classifier=classifier, train_loader=train_dl, test_loader=test_dl, 
