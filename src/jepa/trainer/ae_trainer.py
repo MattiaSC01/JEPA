@@ -196,9 +196,10 @@ class AutoencoderTrainer(Trainer):
         for _ in range(n_images):
             idx = random.randint(0, len(ds) - 1)
             for strength, noise_type in zip(strengths, types):
-                x = ds[idx]["x"].to(self.device)
-                noisy = EvalAE.corrupt_data(x, strength, noise_type=noise_type)
-                x_hat = self.model(noisy)["x_hat"]
+                batch = ds[idx]
+                batch["x"] = batch["x"].to(self.device)
+                noisy = EvalAE.corrupt_data(batch["x"], strength, noise_type=noise_type)
+                x_hat = self.model({"x": noisy})["x_hat"]
                 noisy = self.reassemble_image(noisy)
                 x_hat = self.reassemble_image(x_hat)
                 images.extend([noisy, x_hat])

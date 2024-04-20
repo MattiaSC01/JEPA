@@ -33,10 +33,12 @@ class Jepa(nn.Module):
                     nn.init.xavier_normal_(layer.weight)
                     nn.init.zeros_(layer.bias)
 
-    def forward(self, x):
+    def forward(self, batch: dict) -> dict:
+        x = batch["x"]
+        x_hat = batch["x_hat"]
         encoder_output = self.encoder(x)
         predictor_output = self.predictor(encoder_output)
-        ema_output = self.ema(x)
+        ema_output = self.ema(x_hat)
         return {"encoder_output": encoder_output, "predictor_output": predictor_output, "ema_output": ema_output}
     
     @torch.no_grad()

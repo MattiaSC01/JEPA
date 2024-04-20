@@ -16,7 +16,7 @@ def build_dataset_of_latents(
 ) -> Dataset:
     """
     Build a dataset of latents produced by an encoder on a dataset
-    :param encoder: model to use
+    :param encoder: model to use. Accepts input as a Tensor and outputs a Tensor.
     :param data_loader: dataloader spitting dicts with keys 'x', 'y'
     :param device: device to use
     :return: Dataset of latents and labels, spitting dicts with keys 'x', 'y'.
@@ -25,9 +25,9 @@ def build_dataset_of_latents(
     latents = []
     labels = []
     for batch in data_loader:
-        x, y = batch['x'].to(device), batch['y'].to(device)
-        latents.append(encoder(x))
-        labels.append(y)
+        batch["x"], batch["y"] = batch["x"].to(device), batch["y"].to(device)
+        latents.append(encoder(batch["x"]))
+        labels.append(batch["y"])
     latents = torch.cat(latents, dim=0)
     labels = torch.cat(labels, dim=0)
     return SimpleDataset(latents, labels)
@@ -44,7 +44,7 @@ def train_classifier(
 ) -> list[float]:
     """
     Train a linear classifier on the provided data.
-    :param classifier: model to train. Must output logits.
+    :param classifier: model to train. Accepths input as a Tensor and outputs logits.
     :param train_loader: dataloader spitting dicts with keys 'x', 'y'.
     :param test_loader: same as train_loader.
     :param optimizer: Optimizer for training
@@ -76,7 +76,7 @@ def compute_accuracy(
 ) -> float:
     """
     Compute the accuracy of a classifier on a test set.
-    :param classifier: model to evaluate
+    :param classifier: model to evaluate. Accepths input as a Tensor and outputs logits.
     :param test_loader: dataloader test data. Expects a dict with keys 'x', 'y'.
     :param device: device to evaluate on
     :return: accuracy
@@ -154,9 +154,9 @@ class EvalAE:
         num_batches = int(data_percentage * len(data_loader))
         test_loss = 0
         for idx, batch in enumerate(data_loader):
-            x = batch['x'].to(device)
-            noisy_data = EvalAE.corrupt_data(x, noise_strength, noise_type="gaussian-multiplicative")
-            output = model(noisy_data)
+            batch["x"] = batch["x"].to(device)
+            noisy_data = EvalAE.corrupt_data(batch["x"], noise_strength, noise_type="gaussian-multiplicative")
+            output = model({"x": noisy_data})
             test_loss += criterion(output, batch)['loss'].item()
             if idx + 1 >= num_batches:
                 break

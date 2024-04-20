@@ -87,7 +87,8 @@ class AutoEncoder(nn.Module):
                 nn.init.kaiming_normal_(m.weight)
                 nn.init.zeros_(m.bias)
 
-    def forward(self, x):
+    def forward(self, batch: dict) -> dict:
+        x = batch["x"]
         z = self.encoder(x)
         x_hat = self.decoder(z)
         return {"x_hat": x_hat, "z": z}
