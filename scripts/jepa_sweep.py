@@ -29,7 +29,15 @@ def get_dataset(
 
 def get_model(config):
     encoder = sequential_from_string(config.encoder)
-    predictor = sequential_from_string(config.predictor)
+    if config.predictor == "auto":
+        n_layers = len(encoder) - 1
+        # fails if the last layer is not a Linear layer!
+        while not isinstance(encoder[n_layers], nn.Linear):
+            n_layers -= 1
+        B = encoder[n_layers].out_features
+        predictor = nn.Sequential(nn.Linear(B, B))
+    else:
+        predictor = sequential_from_string(config.predictor)
     return Jepa(encoder=encoder, predictor=predictor, seed=config.seed)
 
 
@@ -39,6 +47,8 @@ def get_optimizer(config, model):
     elif config.optimizer.lower() == "sam":
         base_optimizer = torch.optim.AdamW
         optimizer = SAM(model.parameters(), base_optimizer, lr=config.lr, weight_decay=config.weight_decay, rho=config.rho)
+    elif config.optimizer.lower() == "sgd":
+        optimizer = torch.optim.SGD(model.parameters(), lr=config.lr, weight_decay=config.weight_decay, momentum=0.9)
     scheduler = None
     return optimizer, scheduler
 
