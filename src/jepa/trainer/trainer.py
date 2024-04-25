@@ -108,9 +108,9 @@ class Trainer:
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-        self.step += 1
         if self.log_to_wandb:
             self.log_on_train_step(losses)
+        self.step += 1
         return loss.item()
     
     def train_step_sam(self, batch: dict) -> float:

@@ -18,8 +18,8 @@ class Jepa(nn.Module):
         super().__init__()
         self.encoder = encoder
         self.predictor = predictor
-        self.initialize_weights(seed)
         self.ema = deepcopy(encoder)
+        self.initialize_weights(seed)
         for param in self.ema.parameters():
             param.requires_grad = False
 
