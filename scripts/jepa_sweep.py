@@ -18,8 +18,8 @@ def get_dataset(
 ):
     root = "../data"
     load_dataset = load_cifar if dataset == "cifar10" else load_mnist
-    train_dataset, train_metadata = load_dataset(train=True, log_to_wandb=False, root=root, jepa=False, shuffle=config.seed, num_samples=config.train_size)
-    test_dataset, test_metadata = load_dataset(train=False, log_to_wandb=False, root=root, jepa=False, shuffle=config.seed, num_samples=config.test_size)
+    train_dataset, train_metadata = load_dataset(train=True, log_to_wandb=False, root=root, jepa=True, shuffle=config.seed, num_samples=config.train_size)
+    test_dataset, test_metadata = load_dataset(train=False, log_to_wandb=False, root=root, jepa=True, shuffle=config.seed, num_samples=config.test_size)
     train_metadata["use_as"] = "train"
     test_metadata["use_as"] = "test"
     train_loader = DataLoader(train_dataset, batch_size=config.batch_size)

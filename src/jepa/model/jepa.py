@@ -62,6 +62,7 @@ class Jepa(nn.Module):
             "type": "Jepa",
             "encoder": str(self.encoder),
             "predictor": str(self.predictor),
+            "init_ema": "independent",
         }
         return architecture
     
