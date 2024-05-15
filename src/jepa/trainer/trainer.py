@@ -6,12 +6,14 @@ from typing import Optional
 from ..logger import WandbLogger
 from ..constants import PROJECT, ENTITY
 from ..sam import SAM
+from ..adv_optim import AvdUpd
 from ..utils import set_seed
 import os
 import json
 import datetime
 import socket
 import platform
+import matplotlib.pyplot as plt
 
 
 # TODO: improve how we compute and log validation metrics. Be more systematic
@@ -43,6 +45,7 @@ class Trainer:
             compile_model: bool = True,
             is_sweep: bool = False,
             wandb_project: Optional[str] = None,
+            wandb_run_name: Optional[str] = None,
         ):
         """
         :param model: pytorch model
@@ -72,6 +75,8 @@ class Trainer:
             target_loss = - float("inf")  # no early stopping
         if wandb_project is None:
             wandb_project = PROJECT
+        if wandb_run_name is None:
+            wandb_run_name = "Untitled"
         self.model = model
         self.optimizer = optimizer
         self.criterion = criterion
@@ -92,9 +97,10 @@ class Trainer:
         self.compile_model = compile_model
         self.is_sweep = is_sweep
         self.wandb_project = wandb_project
+        self.wandb_run_name = wandb_run_name
         self.step = 0
         self.epoch = 0
-        self.logger = WandbLogger(project=wandb_project, entity=ENTITY)
+        self.logger = WandbLogger(project=wandb_project, run_name=wandb_run_name,entity=ENTITY)
         self.model.to(self.device)
         torch.compile(self.model)
 
@@ -136,6 +142,31 @@ class Trainer:
             self.log_on_train_step(losses)  # log loss from first pass
         return loss.item()
     
+    def train_step_adv(self, batch: dict) -> float:
+        for key in batch:
+            if isinstance(batch[key], torch.Tensor):
+                batch[key] = batch[key].to(self.device)
+        
+        self.optimizer.zero_grad()
+
+        # first forward-backward pass; use original weights w.
+        output = self.model(batch)
+        losses = self.criterion(output, batch)
+        loss = losses["loss"]
+        loss.backward()
+
+        #  W_r -> \delta W_r^*
+        self.optimizer.first_step()
+        output = self.model(batch)
+        self.criterion(output, batch)["loss"].backward()
+
+        # move back to W_r and use base optimizer to update weights.
+        self.optimizer.second_step()
+        self.step += 1
+        if self.log_to_wandb:
+            self.log_on_train_step(losses)  # log loss from first pass
+        return loss.item()
+    
     def log_on_train_step(self, losses):
         """
         :param losses: dictionary with loss values
@@ -148,11 +179,14 @@ class Trainer:
     def train_epoch(self) -> float:
         self.model.train()
         loss = 0.0
-        for batch in self.train_loader:
+        for batch_idx, batch in enumerate(self.train_loader):
             if isinstance(self.optimizer, SAM):
                 loss += self.train_step_sam(batch)
+            elif isinstance(self.optimizer, AvdUpd):
+                loss += self.train_step_adv(batch)
             else:
                 loss += self.train_step(batch)
+
         self.epoch += 1
         self.logger.log_metric(self.epoch, "train/epoch", self.step)
         self.logger.log_metric(self.epoch, "val/epoch", self.step) # redundant, but useful in the dashboard.

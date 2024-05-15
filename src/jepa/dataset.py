@@ -1,6 +1,6 @@
 import torch
 from torch.nn import functional as F
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, Subset
 from torchvision import datasets
 from torchvision import transforms
 from typing import Optional
@@ -324,3 +324,128 @@ def load_cifar(
     dataset_class = JepaDataset if jepa else SimpleDataset
     dataset = dataset_class(data, targets)
     return dataset, metadata
+
+
+def load_2Dtoy(
+    dataset_type: str = "circle",
+    num_samples: int = 5000,
+    noise_scale: float = 1.,
+    train_test_ratio: float = .7,
+    seed: int = 42
+) -> tuple[Dataset, dict]:
+    """
+    Load one of the 2D toy datasets inspired from http://playground.tensorflow.org
+    """
+    dataset = ToyDataset2D(
+        dataset_type=dataset_type,
+        num_samples=num_samples,
+        noise_scale=noise_scale
+    )
+    
+    set_seed(seed)
+    train_size = int(len(dataset) * train_test_ratio)
+    rand_idx = torch.randperm(len(dataset))
+    train_idx, test_idx = rand_idx[:train_size], rand_idx[train_size:]
+    trainset, testset = Subset(dataset, train_idx), Subset(dataset, test_idx)
+    train_metadata = {"id": f"{dataset_type}2D", "num_samples": len(trainset)}
+    test_metadata = {"id": f"{dataset_type}2D", "num_samples": len(testset)}
+
+    return trainset, testset, train_metadata, test_metadata
+
+class ToyDataset2D(Dataset):
+    def __init__(self, dataset_type, num_samples, noise_scale):
+        super().__init__()
+        self.xs = None
+        self.ys = None
+        self.dataset_type = dataset_type
+        
+        if dataset_type == 'spiral':
+            self.gen_spiral_dataset(num_samples, noise_scale)
+        elif dataset_type == 'circle':
+            self.classify_circle_data(num_samples, noise_scale)
+        elif dataset_type == 'xor':
+            self.classify_xor_data(num_samples, noise_scale)
+        else:
+            print('Dataset type not supported, exiting!')
+            exit()
+
+    def randUniform(self, a, b): 
+        return torch.rand(1) * (b - a) + a
+
+    def gen_spiral_dataset(self, num_samples, noise):
+        xs, ys = [], []
+        n = num_samples // 2
+
+        def gen_spiral(delta_t, label):
+            for i in range(n):
+                r = i / n * 5
+                t = 1.75 * i / n * 2 * torch.pi + delta_t
+                x = r * torch.cos(torch.tensor(t)) + self.randUniform(-1, 1) * noise
+                y = r * torch.sin(torch.tensor(t)) + self.randUniform(-1, 1) * noise
+                xs.append(torch.hstack([x,y]))
+                ys.append(label)
+
+        gen_spiral(0, 1)  # Positive examples.
+        gen_spiral(torch.pi, 0)  # Negative examples.
+
+        self.xs, self.ys = torch.vstack(xs), torch.tensor(ys)
+
+    def classify_circle_data(self, num_samples, noise):
+        xs, ys = [], []
+        radius = 5
+
+        def get_circle_label(p, center):
+            return 1 if torch.dist(p, center) < (radius * 0.5) else 0
+
+        for _ in range(num_samples // 2):
+            r = self.randUniform(0, radius * 0.5)
+            angle = self.randUniform(0, 2 * torch.pi)
+            x = r * torch.cos(angle)
+            y = r * torch.sin(angle)
+            noise_x = self.randUniform(-radius, radius) * noise
+            noise_y = self.randUniform(-radius, radius) * noise
+            label = get_circle_label(torch.hstack([x + noise_x, y + noise_y]), torch.tensor([0, 0]))
+            xs.append(torch.hstack([x,y]))
+            ys.append(label)
+
+        for _ in range(num_samples // 2):
+            r = self.randUniform(radius * 0.7, radius)
+            angle = self.randUniform(0, 2 * torch.pi)
+            x = r * torch.cos(angle)
+            y = r * torch.sin(angle)
+            noise_x = self.randUniform(-radius, radius) * noise
+            noise_y = self.randUniform(-radius, radius) * noise
+            label = get_circle_label(torch.hstack([x + noise_x, y + noise_y]), torch.tensor([0, 0]))
+            xs.append(torch.hstack([x,y]))
+            ys.append(label)
+
+        self.xs, self.ys = torch.vstack(xs), torch.tensor(ys)
+
+    def classify_xor_data(self, num_samples, noise):
+        xs, ys = [], []
+        padding = 0.3
+
+        def get_xor_label(p):
+            return 1 if p[0] * p[1] >= 0 else 0
+        
+        for _ in range(num_samples):
+            x = self.randUniform(-5, 5)
+            y = self.randUniform(-5, 5)
+            x += padding if x > 0 else -padding  # Padding.
+            y += padding if y > 0 else -padding
+            noise_x = self.randUniform(-5, 5) * noise
+            noise_y = self.randUniform(-5, 5) * noise
+            label = get_xor_label((x + noise_x, y + noise_y))
+            xs.append(torch.hstack([x,y]))
+            ys.append(label)
+
+        self.xs, self.ys = torch.vstack(xs), torch.tensor(ys)
+
+    def __len__(self):
+        return len(self.xs)
+    
+    def __getitem__(self, idx):
+        x = self.xs[idx]
+        x_hat = x  # !! this is not a copy, but a reference
+        y = self.ys[idx] if self.ys is not None else None
+        return {"x": x, "x_hat": x_hat, "y": y}

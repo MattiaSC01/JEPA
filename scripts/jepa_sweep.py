@@ -100,7 +100,7 @@ def train(config=None):
         trainer.train()
 
 
-# # debug (also comment `config = wandb.config` in train function)
+# # debug (also comment `config = wandb.config` in train function)
 # import yaml
 # with open("/home/3144860/JEPA/config/jepa_sweep.yaml", "r") as f:
 #     sweep_config = yaml.load(f, Loader=yaml.FullLoader)

@@ -2,9 +2,9 @@ data
 checkpoints
 dataframes
 outputs
-
+.vscode/
 __pycache__
 wandb
 jepa.egg-info
-
 prova.ipynb
+*.png

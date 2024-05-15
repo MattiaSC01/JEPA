@@ -20,9 +20,11 @@ class WandbLogger:
     def __init__(
             self,
             project: str,
+            run_name: str,
             entity: str,
         ) -> None:
         self.project = project
+        self.run_name = run_name
         self.entity = entity
         self.metrics = defaultdict(list)
     
@@ -31,7 +33,7 @@ class WandbLogger:
             assert wandb.run is not None, "for sweeps, you should call wandb.init() before initializing the logger."
             self.run = wandb.run
         else:
-            self.run = wandb.init(project=self.project, entity=self.entity, save_code=True, mode="online")
+            self.run = wandb.init(project=self.project, name=self.run_name, entity=self.entity, save_code=True, mode="online")
         self.run.watch(model, log="all")
 
     def log_metric(self, value, name: str, step: Optional[int] = None):
@@ -93,6 +95,8 @@ class WandbLogger:
             # not sure if this exception is too broad
             print(f"Tried to log usage of dataset artifact {metadata['id']}, but it was not found.")
             if "mnist" in metadata["id"] or "cifar" in metadata["id"]:
+                print("Continuing without logging the dataset usage, as it is a common dataset.")
+            elif "spiral" in metadata["id"] or "circle" in metadata["id"] or "xor" in metadata["id"]:
                 print("Continuing without logging the dataset usage, as it is a common dataset.")
             else:
                 raise e
