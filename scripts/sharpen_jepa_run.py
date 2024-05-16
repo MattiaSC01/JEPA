@@ -11,7 +11,7 @@ from sklearn.linear_model import LogisticRegression
 
 from src.jepa.utils import set_seed
 from src.jepa.dataset import load_2Dtoy
-from src.jepa.model.jepa_adv_scratch import JepaAdv
+from src.jepa.model.jepa_sharpen import JepaSharpen
 from src.jepa.adv_optim import AvdUpd
 from src.jepa.logger import WandbLogger
 
@@ -20,33 +20,6 @@ def log_on_train_step(model, logger, step, loss, latent_l1norm, log_interval, tr
         if step % log_interval == 0:
             logger.log_metric(loss.item(), f"train/loss", step)
             logger.log_metric(latent_l1norm.item(), f"train/latent_l1norm", step)
-
-        if step % (log_interval * 20) == 0:
-            # Log representations
-            demo_batch = next(iter(train_loader))
-            data = demo_batch['x'].to(device)
-            labels = demo_batch['y'].detach().cpu().numpy()
-            context_repr = model.context_encode(data).detach().cpu().numpy()
-            target_repr = model.encode(data).detach().cpu().numpy()
-            _, axs = plt.subplots(1, 3)
-            axs[0].scatter(data[:,0].detach().cpu().numpy(), data[:,1].detach().cpu().numpy(), c=labels)
-            axs[0].set_title('Input data')
-            axs[1].scatter(context_repr[:,0], context_repr[:,1], c=labels)
-            axs[1].set_title('Context')
-            axs[2].scatter(target_repr[:,0], target_repr[:,1], c=labels)
-            axs[2].set_title('Target')
-            plt.tight_layout()
-            logger.log_plot("repr/encoder_representations", step)
-            plt.close()
-
-            # Log predictor weights
-            pred_w = model.predictor.weight.detach().cpu()
-            act_matrix = torch.cat([pred_w], 1).numpy()
-            sns.heatmap(act_matrix, annot=True)
-            plt.title('predictor weights')
-            plt.tight_layout()
-            logger.log_plot("repr/predictor_weights", step)
-            plt.close()
 
 def train_classifier(x_train, y_train, x_test, y_test):
     lr = LogisticRegression(C=2, max_iter=10000)
@@ -58,7 +31,7 @@ def train_classifier(x_train, y_train, x_test, y_test):
 ####################################################################
 
 # fixed hyperparams
-toy_dataset_type = 'xor'
+toy_dataset_type = 'spiral'
 toy_noise_scale = 0.0
 in_dim = 2
 hidden_dim = in_dim*10
@@ -73,14 +46,14 @@ rho = 0.05
 # rho = 0.05
 # rho = 100
 
-# base_optimizer = torch.optim.SGD
-base_optimizer = torch.optim.AdamW
+base_optimizer = torch.optim.SGD
+# base_optimizer = torch.optim.AdamW
 device = "cpu" if not torch.cuda.is_available() else f"cuda:{gpu_idx}"
 checkpoint_interval = max_epochs # epochs
 classification_interval = 10
 
 # Logging
-log_interval = 10 # batches
+log_interval = 1 # batches
 log_to_wandb = True
 wandb_project = "jepa-prove"
 wandb_entity = "gskenderi"
@@ -104,10 +77,10 @@ print(len(train_dataset), len(test_dataset))
 
 scheduler = None
 now = datetime.now()
-wandb_run_name = f'advupd-rho={rho}-{base_optimizer.__name__}-{toy_dataset_type}--{now}'
+wandb_run_name = f'sharPPP-rho={rho}-{base_optimizer.__name__}-{toy_dataset_type}--{now}'
 
 # Training objects
-model = JepaAdv(in_dim, hidden_dim, seed).to(device)
+model = JepaSharpen(in_dim, hidden_dim, seed).to(device)
 param_names = [name for name, _ in model.named_parameters()]
 optimizer = AvdUpd(model.parameters(), base_optimizer, lr=lr, weight_decay=weight_decay, rho=rho, param_names=param_names) # TODO: Currently working with named params here, not sure how optimal this is
 criterion = nn.MSELoss()
@@ -136,6 +109,17 @@ for epoch in range(max_epochs):
         latent_l1norm = torch.abs(encoder_output).mean()
         loss.backward()
 
+        # Log representations
+        if log_to_wandb:
+            if step % log_interval == 0:
+                data = batch['x'].to(device)
+                labels = batch['y'].detach().cpu().numpy()
+                _, axs = plt.subplots(1, 3)
+                axs[0].scatter(data[:,0].detach().cpu().numpy(), data[:,1].detach().cpu().numpy(), c=labels)
+                axs[0].set_title('Input data')
+                axs[1].scatter(ema_output[:,0].detach().cpu().numpy(), ema_output[:,1].detach().cpu().numpy(), c=labels)
+                axs[1].set_title('Context')
+
         #  W_r -> \delta W_r^*
         optimizer.first_step(zero_grad=True)
         output = model(batch)
@@ -146,11 +130,33 @@ for epoch in range(max_epochs):
         running_loss += pertb_loss.item()
         pertb_loss.backward() # re-populate gradients
 
+        # TODO: Plot representations here (after perturbation)
+        if log_to_wandb:
+            if step % log_interval == 0:
+                axs[2].scatter(ema_output[:,0].detach().cpu().numpy(), ema_output[:,1].detach().cpu().numpy(), c=labels)
+                axs[2].set_title('Target')
+                plt.tight_layout()
+                logger.log_plot("repr/encoder_representations", step)
+                plt.close()
+
         # move back to W_r and use base optimizer to update weights.
         optimizer.second_step()
-        step += 1
+
         if log_to_wandb:
-            log_on_train_step(model, logger, step, loss, latent_l1norm, log_interval, train_loader, device)  # log loss from first pass
+            if step % log_interval == 0:
+                # Plot predictor weights here
+                pred_w = model.predictor.weight.detach().cpu()
+                act_matrix = torch.cat([pred_w], 1).numpy()
+                sns.heatmap(act_matrix, annot=True)
+                plt.title('predictor weights')
+                plt.tight_layout()
+                logger.log_plot("repr/predictor_weights", step)
+                plt.close()
+
+            # log loss (from first pass)
+            log_on_train_step(model, logger, step, loss, latent_l1norm, log_interval, train_loader, device)  
+        
+        step += 1
 
     print(f"Epoch {epoch+1}/{max_epochs}, Loss: {running_loss/len(train_loader)}")
 

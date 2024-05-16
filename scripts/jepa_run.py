@@ -29,7 +29,7 @@ max_epochs = 100
 gpu_num = 2
 device = "cpu" if not torch.cuda.is_available() else f"cuda:{gpu_num}"
 compile_model = True
-base_optimizer = torch.optim.SGD
+# base_optimizer = torch.optim.SGD
 base_optimizer = torch.optim.AdamW
 optimizer_class = "ema"
 # optimizer_class = "sam"
@@ -39,7 +39,7 @@ target_loss = 0.00
 alpha = 0.985
 log_to_wandb = True
 log_images = True
-log_interval = 10 # batches
+log_interval = 1 # batches
 checkpoint_interval = max_epochs # epochs
 classification_interval = 10
 classification_epochs = 3
@@ -63,7 +63,8 @@ train_metadata["use_as"] = "train"
 test_metadata["use_as"] = "test"
 train_loader = DataLoader(train_dataset, batch_size=batch_size)
 test_loader = DataLoader(test_dataset, batch_size=batch_size)  # be mindful of the batch size
-
+print('Data shapes')
+print(len(train_dataset), len(test_dataset))
 
 # model components
 encoder = torch.nn.Sequential(

@@ -22,20 +22,13 @@ class AvdUpd(torch.optim.Optimizer):
                 if p.grad is None: continue
                 if 'delta_wr' in self.param_names[i]:
                     delta_wr_star = (-p.grad) * scale.to(p) # Here, p.grad should correspond to the gradient of the loss w.r.t \delta W_r only
-                    p.data.add_(delta_wr_star)  # local perturbation of the target encoder weights
+                    p.data.add_(delta_wr_star)  # local perturbation of the weights
 
         if zero_grad: self.zero_grad()
 
     @torch.no_grad()
     def second_step(self, zero_grad=False):
-        # for group in self.param_groups:
-        #     for i, p in enumerate(group["params"]):                    
-        #         if p.grad is None: continue
-        #         if 'delta_wr' in self.param_names[i]:
-        #             p.data = self.state[p]["perturbed_p"] 
-
         self.base_optimizer.step()  # perform the (S)GD weight update
-
         if zero_grad: self.zero_grad()
 
     def _grad_norm_delta_wr(self):

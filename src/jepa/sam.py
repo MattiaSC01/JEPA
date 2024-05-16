@@ -32,14 +32,6 @@ class SAM(torch.optim.Optimizer):
         for group in self.param_groups:
             for i, p in enumerate(group["params"]):                    
                 if p.grad is None: continue
-
-                # # TODO: The adversarial update we wished for should be here, correct?
-                # # TODO: This is severely hardcoded, ideally we'd used named parameters here to get the target encoder weights and biases
-                # TODO: Replicate this procedure for the estimation of the \delta W_r with the negated gradient function
-                
-                # if i >= len(group["params"]) - 2: 
-                #     p.grad *= -1  
-                
                 p.data = self.state[p]["old_p"]  # get back to "w" from "w + e(w)"
 
         self.base_optimizer.step()  # do the actual "sharpness-aware" update

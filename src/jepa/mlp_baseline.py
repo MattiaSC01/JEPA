@@ -10,20 +10,20 @@ from src.jepa.utils import set_seed
 from src.jepa.dataset import load_2Dtoy
 
 # fixed hyperparams
-toy_dataset_type = 'xor'
+toy_dataset_type = 'circle'
 toy_noise_scale = 0.0
 in_dim = 2
 hidden_dim = in_dim*10
-batch_size = 10
-lr = 0.01
-weight_decay = 0.5
+batch_size = 64
+lr = 0.001
+weight_decay = 0.005
 max_epochs = 100
 gpu_idx = 2
 device = "cpu" if not torch.cuda.is_available() else f"cuda:{gpu_idx}"
 seed = 420
 set_seed(seed)
 
-
+# This architecture corresponds to the encoder mlps we use for the jepa model
 class MLP(nn.Module):
     def __init__(self, input_size, hidden_size, output_size):
         super(MLP, self).__init__()
@@ -33,8 +33,7 @@ class MLP(nn.Module):
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = self.fc3(x)
+        x = self.fc3(self.fc2(x))
 
         return x
 
@@ -57,6 +56,7 @@ print(len(train_dataset), len(test_dataset))
 model = MLP(in_dim, hidden_dim, 1).to(device)
 optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
 criterion = nn.BCEWithLogitsLoss()
+print(f'Training on {toy_dataset_type} dataset on device {device}...')
 for epoch in range(max_epochs):
     model.train()  # Set the model to training mode
     running_loss = 0.0
@@ -93,7 +93,7 @@ zs, ys = [], []
 with torch.no_grad():
     for batch in test_loader:
         x, y = batch['x'].to(device), batch['y']
-        z = F.relu(model.fc2(F.relu(model.fc1(x))))
+        z = model.fc2(F.relu(model.fc1(x)))
         zs.append(z.detach().cpu().numpy())
         ys.append(y.numpy())
 
@@ -102,3 +102,4 @@ zs, ys = np.vstack(zs), np.hstack(ys)
 plt.scatter(zs[:, 0], zs[:, 1], c=ys)
 plt.savefig(f'mlp-repr-{toy_dataset_type}.png')
 plt.close()
+print('Training completed!')
