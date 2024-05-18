@@ -22,28 +22,28 @@ import platform
 
 class Trainer:
     def __init__(
-            self,
-            model: nn.Module,
-            optimizer: torch.optim.Optimizer,
-            criterion: nn.Module,
-            train_loader: DataLoader,
-            test_loader: Optional[DataLoader] = None,
-            train_metadata: Optional[dict] = None,
-            test_metadata: Optional[dict] = None,
-            max_epochs: int = 1,
-            device: str = "cpu",
-            scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None,
-            log_to_wandb: bool = True,
-            log_interval: int = 10,
-            log_images: bool = False,
-            checkpoint_interval: Optional[int] = None,
-            checkpoint_root_dir: str = "checkpoints",
-            target_loss: Optional[float] = None,
-            seed: int = 42,
-            compile_model: bool = True,
-            is_sweep: bool = False,
-            wandb_project: Optional[str] = None,
-        ):
+        self,
+        model: nn.Module,
+        optimizer: torch.optim.Optimizer,
+        criterion: nn.Module,
+        train_loader: DataLoader,
+        test_loader: Optional[DataLoader] = None,
+        train_metadata: Optional[dict] = None,
+        test_metadata: Optional[dict] = None,
+        max_epochs: int = 1,
+        device: str = "cpu",
+        scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None,
+        log_to_wandb: bool = True,
+        log_interval: int = 10,
+        log_images: bool = False,
+        checkpoint_interval: Optional[int] = None,
+        checkpoint_root_dir: str = "checkpoints",
+        target_loss: Optional[float] = None,
+        seed: int = 42,
+        compile_model: bool = True,
+        is_sweep: bool = False,
+        wandb_project: Optional[str] = None,
+    ):
         """
         :param model: pytorch model
         :param optimizer: optimizer
@@ -65,11 +65,11 @@ class Trainer:
         :param compile_model: if True, call torch.compile(model) at the end of __init__.
         """
         if checkpoint_interval is None:
-            checkpoint_interval = max_epochs + 1 # no checkpoints
+            checkpoint_interval = max_epochs + 1  # no checkpoints
         else:
             os.makedirs(checkpoint_root_dir, exist_ok=True)
         if target_loss is None:
-            target_loss = - float("inf")  # no early stopping
+            target_loss = -float("inf")  # no early stopping
         if wandb_project is None:
             wandb_project = PROJECT
         self.model = model
@@ -112,7 +112,7 @@ class Trainer:
             self.log_on_train_step(losses)
         self.step += 1
         return loss.item()
-    
+
     def train_step_sam(self, batch: dict) -> float:
         for key in batch:
             if isinstance(batch[key], torch.Tensor):
@@ -135,7 +135,7 @@ class Trainer:
         if self.log_to_wandb:
             self.log_on_train_step(losses)  # log loss from first pass
         return loss.item()
-    
+
     def log_on_train_step(self, losses):
         """
         :param losses: dictionary with loss values
@@ -144,7 +144,7 @@ class Trainer:
             return
         for key, value in losses.items():
             self.logger.log_metric(value.item(), f"train/{key}", self.step)
-    
+
     def train_epoch(self) -> float:
         self.model.train()
         loss = 0.0
@@ -155,24 +155,31 @@ class Trainer:
                 loss += self.train_step(batch)
         self.epoch += 1
         self.logger.log_metric(self.epoch, "train/epoch", self.step)
-        self.logger.log_metric(self.epoch, "val/epoch", self.step) # redundant, but useful in the dashboard.
+        self.logger.log_metric(
+            self.epoch, "val/epoch", self.step
+        )  # redundant, but useful in the dashboard.
         if self.epoch % self.checkpoint_interval == 0:
             self.make_checkpoint()
         return loss / len(self.train_loader)
-    
+
     def train(self):
         if self.log_to_wandb:
             self.setup_wandb()
         set_seed(self.seed)
         for epoch in range(self.max_epochs):
             train_loss = self.train_epoch()
-            print(f"Epoch {epoch + 1}/{self.max_epochs}, train_loss: {train_loss:.4f}", end="")
+            print(
+                f"Epoch {epoch + 1}/{self.max_epochs}, train_loss: {train_loss:.4f}",
+                end="",
+            )
             if self.test_loader:
                 val_loss = self.test_epoch()
                 print(f", val_loss: {val_loss:.4f}", end="")
             print()
             if self.scheduler:
-                if isinstance(self.scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
+                if isinstance(
+                    self.scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau
+                ):
                     self.scheduler.step(train_loss)
                 else:
                     self.scheduler.step()
@@ -183,7 +190,10 @@ class Trainer:
         self.end_training()
 
     def end_training(self):
-        if self.checkpoint_interval <= self.max_epochs and self.epoch % self.checkpoint_interval != 0:
+        if (
+            self.checkpoint_interval <= self.max_epochs
+            and self.epoch % self.checkpoint_interval != 0
+        ):
             self.make_checkpoint()
         if self.log_to_wandb:
             self.logger.end_run()
@@ -195,7 +205,7 @@ class Trainer:
         output = self.model(batch)
         losses = self.criterion(output, batch)
         return losses
-    
+
     @torch.no_grad()
     def test_epoch(self) -> float:
         self.model.eval()
@@ -210,11 +220,20 @@ class Trainer:
             for key, value in avg_losses.items():
                 self.logger.log_metric(value, f"val/{key}", self.step)
         return losses["loss"].item()
-    
+
     def make_checkpoint(self):
+        # TODO: test changes to this method
         architecture = self.model.get_architecture()["type"]
-        chkpt_dir = os.path.join(self.checkpoint_root_dir, architecture, self.train_metadata["id"])
+        chkpt_dir = os.path.join(
+            self.checkpoint_root_dir,
+            architecture,
+            self.train_metadata["id"],
+            str(self.epoch),
+        )
         os.makedirs(chkpt_dir, exist_ok=True)
+        chkpt_path = os.path.join(chkpt_dir, "weights.pt")
+        metadata_path = os.path.join(chkpt_dir, "metadata.json")
+        val_losses = list(self.logger.get_last_metrics_values(prefix="val/"))
         chkpt_metadata = {
             "step": self.step,
             "epoch": self.epoch,
@@ -226,12 +245,12 @@ class Trainer:
             "train_set": self.train_metadata,
             "test_set": self.test_metadata,
         }
-        with open(os.path.join(chkpt_dir, "metadata.json"), "w") as f:
+        chkpt_metadata["val_losses"] = dict(val_losses)
+        with open(metadata_path, "w") as f:
             json.dump(chkpt_metadata, f)
-        chkpt_path = os.path.join(chkpt_dir, "weights.pt")
         torch.save(self.model.state_dict(), chkpt_path)
         if self.log_to_wandb:
-            artifact_name = f"chkpt-{self.train_metadata['id']}"
+            artifact_name = f"chkpt-{self.train_metadata['id']}-{self.epoch}"
             self.logger.log_checkpoint(chkpt_dir, artifact_name)
 
     def setup_wandb(self):
@@ -240,25 +259,31 @@ class Trainer:
         self.logger.use_dataset(self.test_metadata)
         self.logger.add_to_config(self.get_training_hyperparameters())
         self.logger.add_to_config(self.get_optimizer_hyperparameters(), prefix="optim")
-        self.logger.add_to_config(self.get_scheduler_hyperparameters(), prefix="scheduler")
+        self.logger.add_to_config(
+            self.get_scheduler_hyperparameters(), prefix="scheduler"
+        )
         self.logger.add_to_config(self.model.get_architecture(), prefix="model")
         self.logger.add_to_config(self.get_device_info(), prefix="device")
         if self.train_metadata:
             self.logger.add_to_config(self.train_metadata, prefix="train_data")
         if self.test_metadata:
             self.logger.add_to_config(self.test_metadata, prefix="test_data")
-    
+
     def get_training_hyperparameters(self) -> dict:
         """
         Return a dictionary with the hyperparameters used for training.
         Does not include the model architecture, nor dataset metadata.
         """
         hyperparameters = {
-            "lr": self.optimizer.param_groups[0]['lr'],
-            "rho": self.optimizer.defaults['rho'] if isinstance(self.optimizer, SAM) else None,
+            "lr": self.optimizer.param_groups[0]["lr"],
+            "rho": (
+                self.optimizer.defaults["rho"]
+                if isinstance(self.optimizer, SAM)
+                else None
+            ),
             "batch_size": self.train_loader.batch_size,
             "max_epochs": self.max_epochs,
-            "weight_decay": self.optimizer.param_groups[0]['weight_decay'],
+            "weight_decay": self.optimizer.param_groups[0]["weight_decay"],
             "optimizer": type(self.optimizer).__name__,
             "criterion": self.criterion.get_config(),
             "scheduler": type(self.scheduler).__name__ if self.scheduler else None,
@@ -269,7 +294,7 @@ class Trainer:
             "compile_model": self.compile_model,
         }
         return hyperparameters
-    
+
     def get_optimizer_hyperparameters(self):
         """
         Return a dictionary with the hyperparameters used for the optimizer.
@@ -286,21 +311,24 @@ class Trainer:
         if not self.scheduler:
             return settings
         for key, value in self.scheduler.__dict__.items():
-            if not key.startswith("_") and key not in ['optimizer', 'best', 'num_bad_epochs', 'last_epoch']:
+            if not key.startswith("_") and key not in [
+                "optimizer",
+                "best",
+                "num_bad_epochs",
+                "last_epoch",
+            ]:
                 settings[key] = value
         return settings
-    
+
     def get_device_info(self):
         """
         Return a dictionary with information about the device used for training.
         """
         device_info = {
-        "hostname": socket.gethostname(),
-        "cpu": platform.processor(),
-        "pytorch_version": torch.__version__,
-        "device": self.device,
-        "cuda_version": torch.version.cuda,
+            "hostname": socket.gethostname(),
+            "cpu": platform.processor(),
+            "pytorch_version": torch.__version__,
+            "device": self.device,
+            "cuda_version": torch.version.cuda,
         }
         return device_info
-
-
