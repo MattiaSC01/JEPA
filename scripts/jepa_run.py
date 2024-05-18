@@ -11,7 +11,7 @@ from jepa.sam import SAM
 # fixed hyperparams
 load_dataset = load_cifar
 N = 3072
-B = 300
+B = 2500
 train_size = 16384
 test_size = 4096
 batch_size = 64
@@ -21,12 +21,12 @@ sparsity_weight = 0.0
 max_epochs = 50
 device = "cpu" if not torch.cuda.is_available() else "cuda"
 compile_model = True
-base_optimizer = torch.optim.AdamW
-optimizer_class = "adamw"
+base_optimizer = torch.optim.SGD
+optimizer_class = "sgd"
 rho = 0.05
-seed = 72
+seed = 5
 target_loss = 0.00
-alpha = 0.97
+alpha = 0.99
 print("Using device: ", device)
 
 
@@ -35,8 +35,8 @@ log_to_wandb = True
 log_images = True
 log_interval = 10 # batches
 checkpoint_interval = max_epochs # epochs
-classification_interval = 10
-classification_epochs = 3
+classification_interval = 5
+classification_epochs = 30
 wandb_project = "jepa-prove"
 
 
@@ -53,7 +53,7 @@ test_loader = DataLoader(test_dataset, batch_size=test_size)  # be mindful of th
 # model
 encoder = torch.nn.Sequential(
     nn.Linear(N, B),
-    nn.Tanh(),
+    nn.ReLU(),
 )
 predictor = torch.nn.Sequential(
     nn.Linear(B, B),
@@ -61,6 +61,8 @@ predictor = torch.nn.Sequential(
 model = Jepa(encoder=encoder, predictor=predictor, seed=seed)
 if optimizer_class.lower() == "sam":
     optimizer = SAM(model.parameters(), base_optimizer, lr=lr, weight_decay=weight_decay, rho=rho)
+elif optimizer_class.lower() == "sgd":
+    optimizer = base_optimizer(model.parameters(), lr=lr, weight_decay=weight_decay, momentum=0.9)
 else:
     optimizer = base_optimizer(model.parameters(), lr=lr, weight_decay=weight_decay)
 criterion = JepaCriterion(re=nn.MSELoss(), sparsity_weight=sparsity_weight)

@@ -8,6 +8,9 @@ import copy
 from .dataset import SimpleDataset
 
 
+# TODO: write function to compute the avg l0 norm of the latents
+
+
 @torch.no_grad()
 def build_dataset_of_latents(
     encoder: nn.Module,

@@ -14,7 +14,7 @@ from jepa.sam import SAM
 # fixed hyperparams
 load_dataset = load_cifar
 N = 3072
-B = 300
+B = 50
 hidden_layers = [B]  # from first hidden to bottleneck, included
 train_size = 16384
 test_size = 4096
