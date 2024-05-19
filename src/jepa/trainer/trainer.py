@@ -50,7 +50,7 @@ class Trainer:
         :param criterion: criterion(output: dict, batch: dict) -> dict. Output must contain a "loss" key.
         :param train_loader: DataLoader that yields batches as dictionaries
         :param test_loader: DataLoader that yields batches as dictionaries
-        :param dataset_metadata: metadata about the dataset
+        :param dataset_metadata: metadata about the dataset. Must contain keys 'id', 'use_as'. Can contain other keys.
         :param max_epochs: number of epochs to train for
         :param device: "cpu" or "cuda"
         :param scheduler: learning rate scheduler

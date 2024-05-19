@@ -112,6 +112,12 @@ class WandbLogger:
                     "Continuing without logging the dataset usage, as it is a common dataset."
                 )
             else:
+                print(
+                    "To upload the dataset, include a line like this one in your code:"
+                )
+                print(
+                    "WandbLogger.log_dataset(data, metadata, project=project, entity=ENTITY)"
+                )
                 raise e
 
     def add_to_config(self, hyperparameters: dict, prefix: str = ""):
