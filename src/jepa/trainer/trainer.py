@@ -224,7 +224,11 @@ class Trainer:
 
     def make_checkpoint(self):
         # TODO: test changes to this method
-        architecture = self.model.get_architecture()["type"]
+        architecture = (
+            self.model.get_architecture()["type"]
+            if hasattr(self.model, "get_architecture")
+            else "custom"
+        )
         chkpt_dir = os.path.join(
             self.checkpoint_root_dir,
             architecture,
@@ -240,7 +244,11 @@ class Trainer:
             "epoch": self.epoch,
             "date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "optimizer": self.get_optimizer_hyperparameters(),
-            "architecture": self.model.get_architecture(),
+            "architecture": (
+                self.model.get_architecture()
+                if hasattr(self.model, "get_architecture")
+                else None
+            ),
             "hyperparameters": self.get_training_hyperparameters(),
             "device": self.get_device_info(),
             "train_set": self.train_metadata,
@@ -264,7 +272,8 @@ class Trainer:
         self.logger.add_to_config(
             self.get_scheduler_hyperparameters(), prefix="scheduler"
         )
-        self.logger.add_to_config(self.model.get_architecture(), prefix="model")
+        if hasattr(self.model, "get_architecture"):
+            self.logger.add_to_config(self.model.get_architecture(), prefix="model")
         self.logger.add_to_config(self.get_device_info(), prefix="device")
         if self.train_metadata:
             self.logger.add_to_config(self.train_metadata, prefix="train_data")
@@ -287,7 +296,11 @@ class Trainer:
             "max_epochs": self.max_epochs,
             "weight_decay": self.optimizer.param_groups[0]["weight_decay"],
             "optimizer": type(self.optimizer).__name__,
-            "criterion": self.criterion.get_config(),
+            "criterion": (
+                self.criterion.get_config()
+                if hasattr(self.criterion, "get_config")
+                else None
+            ),
             "scheduler": type(self.scheduler).__name__ if self.scheduler else None,
             "train_size": len(self.train_loader.dataset),
             "test_size": len(self.test_loader.dataset) if self.test_loader else None,
