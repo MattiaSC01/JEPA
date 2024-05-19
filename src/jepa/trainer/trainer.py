@@ -257,7 +257,8 @@ class Trainer:
     def setup_wandb(self):
         self.logger.init_run(self.model, is_sweep=self.is_sweep)
         self.logger.use_dataset(self.train_metadata)
-        self.logger.use_dataset(self.test_metadata)
+        if self.test_metadata:
+            self.logger.use_dataset(self.test_metadata)
         self.logger.add_to_config(self.get_training_hyperparameters())
         self.logger.add_to_config(self.get_optimizer_hyperparameters(), prefix="optim")
         self.logger.add_to_config(
