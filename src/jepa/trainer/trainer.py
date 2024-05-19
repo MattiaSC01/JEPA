@@ -96,7 +96,8 @@ class Trainer:
         self.epoch = 0
         self.logger = WandbLogger(project=wandb_project, entity=ENTITY)
         self.model.to(self.device)
-        torch.compile(self.model)
+        if self.compile_model:
+            torch.compile(self.model)
 
     def train_step(self, batch: dict) -> float:
         for key in batch:
