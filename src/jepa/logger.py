@@ -82,16 +82,17 @@ class WandbLogger:
         Meant to be called once, after the dataset has been saved to disk.
         :param dataset: dataset to log
         :param metadata: dictionary with metadata about the dataset.
-        must contain the following keys: id, dataset_dir.
+        must contain the following keys: id, dataset_dir (optional).
         :param project: name of the project
-        :param entity: name of the entity
+        :param entity: name of the entity (e.g. mattia-scardecchia)
         """
         notes = f"Upload dataset {metadata['id']} as an artifact."
         with wandb.init(project=project, entity=entity, notes=notes) as run:
             dataset_artifact = wandb.Artifact(
                 name=metadata["id"], type="dataset", metadata=metadata
             )
-            dataset_artifact.add_dir(metadata["dataset_dir"])
+            if "dataset_dir" in metadata:
+                dataset_artifact.add_dir(metadata["dataset_dir"])
             run.log_artifact(dataset_artifact)
 
     def use_dataset(self, metadata: dict):
