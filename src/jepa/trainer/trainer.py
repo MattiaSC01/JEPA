@@ -103,6 +103,14 @@ class Trainer:
         for key in batch:
             if isinstance(batch[key], torch.Tensor):
                 batch[key] = batch[key].to(self.device)
+            elif isinstance(batch[key], dict):
+                for k in batch[key]:
+                    if isinstance(batch[key][k], torch.Tensor):
+                        batch[key][k] = batch[key][k].to(self.device)
+            elif isinstance(batch[key], list):
+                for i, item in enumerate(batch[key]):
+                    if isinstance(item, torch.Tensor):
+                        batch[key][i] = item.to(self.device)
         output = self.model(batch)
         losses = self.criterion(output, batch)
         loss = losses["loss"]
