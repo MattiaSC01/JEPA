@@ -44,6 +44,7 @@ class Trainer:
         is_sweep: bool = False,
         wandb_project: Optional[str] = None,
         gradient_accumulation_steps: int = 1,
+        validation_interval: Optional[int] = None,
     ):
         """
         :param model: pytorch model
@@ -67,6 +68,7 @@ class Trainer:
         :param is_sweep: if True, this is a sweep run.
         :param wandb_project: name of the wandb project to log to.
         :param gradient_accumulation_steps: number of steps to accumulate gradients before stepping. Not implemented for SAM.
+        :param validation_interval: if not None, do a test epoch every validation_interval steps, in addition to the end of each train epoch.
         """
         if checkpoint_interval is None:
             checkpoint_interval = max_epochs + 1  # no checkpoints
@@ -99,6 +101,7 @@ class Trainer:
         self.step = 0
         self.epoch = 0
         self.gradient_accumulation_steps = gradient_accumulation_steps
+        self.validation_interval = validation_interval
         self.logger = WandbLogger(project=wandb_project, entity=ENTITY)
         self.model.to(self.device)
         if self.compile_model:
@@ -177,6 +180,9 @@ class Trainer:
         self.logger.log_metric(
             self.epoch, "val/epoch", self.step
         )  # redundant, but useful in the dashboard.
+        if self.validation_interval and self.step % self.validation_interval == 0:
+            val_loss = self.test_epoch()
+            print(f"Step {self.step}   val_loss {val_loss:.4f}")
         if self.epoch % self.checkpoint_interval == 0:
             self.make_checkpoint()
         return loss / len(self.train_loader)
@@ -188,12 +194,12 @@ class Trainer:
         for epoch in range(self.max_epochs):
             train_loss = self.train_epoch()
             print(
-                f"Epoch {epoch + 1}/{self.max_epochs}, train_loss: {train_loss:.4f}",
+                f"Epoch {epoch + 1}/{self.max_epochs}   train_loss: {train_loss:.4f}",
                 end="",
             )
             if self.test_loader:
                 val_loss = self.test_epoch()
-                print(f", val_loss: {val_loss:.4f}", end="")
+                print(f"   val_loss: {val_loss:.4f}", end="")
             print()
             if self.scheduler:
                 if isinstance(
