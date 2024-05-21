@@ -99,6 +99,7 @@ class Trainer:
         self.is_sweep = is_sweep
         self.wandb_project = wandb_project
         self.step = 0
+        self.clock = 0
         self.epoch = 0
         self.gradient_accumulation_steps = gradient_accumulation_steps
         self.validation_interval = validation_interval
@@ -123,12 +124,13 @@ class Trainer:
         losses = self.criterion(output, batch)
         loss = losses["loss"]
         loss.backward()
-        if self.step % self.gradient_accumulation_steps == 0:
+        if self.clock % self.gradient_accumulation_steps == 0:
             self.optimizer.step()
             self.optimizer.zero_grad()
+            self.step += 1
         if self.log_to_wandb:
             self.log_on_train_step(losses)
-        self.step += 1
+        self.clock += 1
         return loss.item()
 
     def train_step_sam(self, batch: dict) -> float:

@@ -7,21 +7,26 @@ import pandas as pd
 from typing import Optional, Union
 from .trainer import Trainer
 from ..model.autoencoder import AutoEncoder
-from ..evaluation import EvalAE, norm_of_parameters, build_dataset_of_latents, train_classifier
+from ..evaluation import (
+    EvalAE,
+    norm_of_parameters,
+    build_dataset_of_latents,
+    train_classifier,
+)
 import random
 
 
 class AutoencoderTrainer(Trainer):
     def __init__(
-            self,
-            flatness_interval: Optional[int] = None,
-            train_set_percentage_for_flatness: Union[float, str] = 1.0,
-            flatness_iters: int = 5,
-            denoising_iters: int = 1,
-            classification_interval: Optional[int] = None,
-            classification_epochs: int = 3,
-            **kwargs
-        ):
+        self,
+        flatness_interval: Optional[int] = None,
+        train_set_percentage_for_flatness: Union[float, str] = 1.0,
+        flatness_iters: int = 5,
+        denoising_iters: int = 1,
+        classification_interval: Optional[int] = None,
+        classification_epochs: int = 3,
+        **kwargs,
+    ):
         """
         Trainer specific to autoencoders. Adds flatness and denoising evaluation.
         :param flatness_interval: compute flatness every flatness_interval epochs. If None,
@@ -36,14 +41,20 @@ class AutoencoderTrainer(Trainer):
         :param classification_epochs: number of epochs to train the classifier for.
         """
         super().__init__(**kwargs)
-        assert isinstance(self.model, AutoEncoder), "AutoencoderTrainer expects an AutoEncoder model."
+        assert isinstance(
+            self.model, AutoEncoder
+        ), "AutoencoderTrainer expects an AutoEncoder model."
         if classification_interval is None:
             classification_interval = self.max_epochs + 1  # no classification
         if flatness_interval is None:
             flatness_interval = self.max_epochs + 1  # no flatness
-        if train_set_percentage_for_flatness == 'auto':
-            assert self.test_loader is not None, "If train_set_percentage_for_flatness is 'auto', test_loader must be provided."
-            train_set_percentage_for_flatness = min(len(self.test_loader.dataset) / len(self.train_loader.dataset), 1.0)
+        if train_set_percentage_for_flatness == "auto":
+            assert (
+                self.test_loader is not None
+            ), "If train_set_percentage_for_flatness is 'auto', test_loader must be provided."
+            train_set_percentage_for_flatness = min(
+                len(self.test_loader.dataset) / len(self.train_loader.dataset), 1.0
+            )
         self.flatness_interval = flatness_interval
         self.train_set_percentage_for_flatness = train_set_percentage_for_flatness
         self.flatness_iters = flatness_iters
@@ -56,11 +67,27 @@ class AutoencoderTrainer(Trainer):
         if self.step % (self.log_interval * 20) == 0:
             encoder_norms = norm_of_parameters(self.model.encoder)
             decoder_norms = norm_of_parameters(self.model.decoder)
-            self.logger.log_metric(encoder_norms["weight_norm"] / encoder_norms["weight_count"], "norms/encoder_weight_norm", self.step)
-            self.logger.log_metric(encoder_norms["bias_norm"] / encoder_norms["bias_count"], "norms/encoder_bias_norm", self.step)
-            self.logger.log_metric(decoder_norms["weight_norm"] / decoder_norms["weight_count"], "norms/decoder_weight_norm", self.step)
-            self.logger.log_metric(decoder_norms["bias_norm"] / decoder_norms["bias_count"], "norms/decoder_bias_norm", self.step)
-    
+            self.logger.log_metric(
+                encoder_norms["weight_norm"] / encoder_norms["weight_count"],
+                "norms/encoder_weight_norm",
+                self.step,
+            )
+            self.logger.log_metric(
+                encoder_norms["bias_norm"] / encoder_norms["bias_count"],
+                "norms/encoder_bias_norm",
+                self.step,
+            )
+            self.logger.log_metric(
+                decoder_norms["weight_norm"] / decoder_norms["weight_count"],
+                "norms/decoder_weight_norm",
+                self.step,
+            )
+            self.logger.log_metric(
+                decoder_norms["bias_norm"] / decoder_norms["bias_count"],
+                "norms/decoder_bias_norm",
+                self.step,
+            )
+
     def test_epoch(self):
         loss = super().test_epoch()
         with torch.no_grad():
@@ -73,14 +100,23 @@ class AutoencoderTrainer(Trainer):
         if self.epoch % self.classification_interval == 0:
             self.handle_classification()
         return loss
-    
+
     def end_training(self):
-        if self.checkpoint_interval <= self.max_epochs and self.epoch % self.checkpoint_interval != 0:
+        if (
+            self.checkpoint_interval <= self.max_epochs
+            and self.epoch % self.checkpoint_interval != 0
+        ):
             self.make_checkpoint()
-        if self.flatness_interval <= self.max_epochs and self.epoch % self.flatness_interval != 0:
+        if (
+            self.flatness_interval <= self.max_epochs
+            and self.epoch % self.flatness_interval != 0
+        ):
             self.handle_flatness()
             self.handle_denoising()
-        if self.classification_interval <= self.max_epochs and self.epoch % self.classification_interval != 0:
+        if (
+            self.classification_interval <= self.max_epochs
+            and self.epoch % self.classification_interval != 0
+        ):
             self.handle_classification()
         if self.log_to_wandb:
             self.logger.end_run()
@@ -104,35 +140,70 @@ class AutoencoderTrainer(Trainer):
     def handle_flatness(self):
         sigmas = np.linspace(0, 0.15, 10)
         n_iters = self.flatness_iters
-        flatness_train = EvalAE.flatness_profile(self.model, self.train_loader, sigmas, n_iters, criterion=self.criterion, data_percentage=self.train_set_percentage_for_flatness)
+        flatness_train = EvalAE.flatness_profile(
+            self.model,
+            self.train_loader,
+            sigmas,
+            n_iters,
+            criterion=self.criterion,
+            data_percentage=self.train_set_percentage_for_flatness,
+        )
         self.log_flatness(flatness_train, split="train")
-        flatness_val = EvalAE.flatness_profile(self.model, self.test_loader, sigmas, n_iters, criterion=self.criterion)
+        flatness_val = EvalAE.flatness_profile(
+            self.model, self.test_loader, sigmas, n_iters, criterion=self.criterion
+        )
         self.log_flatness(flatness_val, split="val")
 
     def handle_denoising(self):
         sigmas = np.linspace(0, 1.0, 10)
         n_iters = self.denoising_iters
-        denoising_train = EvalAE.denoising_profile(self.model, self.train_loader, sigmas, n_iters, criterion=self.criterion, data_percentage=self.train_set_percentage_for_flatness)
+        denoising_train = EvalAE.denoising_profile(
+            self.model,
+            self.train_loader,
+            sigmas,
+            n_iters,
+            criterion=self.criterion,
+            data_percentage=self.train_set_percentage_for_flatness,
+        )
         self.log_denoising(denoising_train, split="train")
-        denoising_val = EvalAE.denoising_profile(self.model, self.test_loader, sigmas, n_iters, criterion=self.criterion)
+        denoising_val = EvalAE.denoising_profile(
+            self.model, self.test_loader, sigmas, n_iters, criterion=self.criterion
+        )
         self.log_denoising(denoising_val, split="val")
-    
+
     @torch.no_grad()
     def build_latent_datasets(self) -> tuple[DataLoader, DataLoader]:
-        train_latents = build_dataset_of_latents(self.model.encoder, self.train_loader, self.device)
-        test_latents = build_dataset_of_latents(self.model.encoder, self.test_loader, self.device)
-        train_dl = DataLoader(train_latents, batch_size=self.train_loader.batch_size, shuffle=True)
-        test_dl = DataLoader(test_latents, batch_size=self.test_loader.batch_size, shuffle=False)
+        train_latents = build_dataset_of_latents(
+            self.model.encoder, self.train_loader, self.device
+        )
+        test_latents = build_dataset_of_latents(
+            self.model.encoder, self.test_loader, self.device
+        )
+        train_dl = DataLoader(
+            train_latents, batch_size=self.train_loader.batch_size, shuffle=True
+        )
+        test_dl = DataLoader(
+            test_latents, batch_size=self.test_loader.batch_size, shuffle=False
+        )
         return train_dl, test_dl
-    
+
     def train_classifier(self, train_dl: DataLoader, test_dl: DataLoader) -> list:
         latent_dim = next(iter(train_dl))["x"].shape[1]
         num_classes = len(train_dl.dataset.labels.unique())
         classifier = nn.Linear(latent_dim, num_classes).to(self.device)
-        optimizer = torch.optim.AdamW(classifier.parameters(), lr=1e-3, weight_decay=1e-3)
+        optimizer = torch.optim.AdamW(
+            classifier.parameters(), lr=1e-3, weight_decay=1e-3
+        )
         criterion = nn.CrossEntropyLoss()
-        accs = train_classifier(classifier=classifier, train_loader=train_dl, test_loader=test_dl, 
-                                optimizer=optimizer, criterion=criterion, device=self.device, epochs=self.classification_epochs)
+        accs = train_classifier(
+            classifier=classifier,
+            train_loader=train_dl,
+            test_loader=test_dl,
+            optimizer=optimizer,
+            criterion=criterion,
+            device=self.device,
+            epochs=self.classification_epochs,
+        )
         return accs
 
     def log_flatness(self, losses: dict, split: str):
@@ -149,7 +220,9 @@ class AutoencoderTrainer(Trainer):
             self.logger.log_metric(std, f"flatness/{split}/std_{sigma}", self.step)
         avg_diff = df.mean().mean() - df.iloc[0, 0]
         self.logger.log_metric(avg_diff, f"flatness/{split}/avg_diff", self.step)
-        self.logger.log_metric(avg_diff, f"{split}/flatness_avg_diff", self.step) # redundant, but useful in the dashboard.
+        self.logger.log_metric(
+            avg_diff, f"{split}/flatness_avg_diff", self.step
+        )  # redundant, but useful in the dashboard.
         # self.logger.log_table(df, f"tables/{split}_flatness", self.step)
         self.plot_and_log_flatness(losses, split=split, plot_type="flatness")
 
@@ -167,7 +240,9 @@ class AutoencoderTrainer(Trainer):
             self.logger.log_metric(std, f"denoising/{split}/std_{sigma}", self.step)
         avg_diff = df.mean().mean() - df.iloc[0, 0]
         self.logger.log_metric(avg_diff, f"denoising/{split}/avg_diff", self.step)
-        self.logger.log_metric(avg_diff, f"{split}/denoising_avg_diff", self.step) # redundant, but useful in the dashboard.
+        self.logger.log_metric(
+            avg_diff, f"{split}/denoising_avg_diff", self.step
+        )  # redundant, but useful in the dashboard.
         # self.logger.log_table(df, f"tables/{split}_denoising", self.step)
         self.plot_and_log_flatness(losses, split=split, plot_type="denoising")
 
@@ -220,7 +295,7 @@ class AutoencoderTrainer(Trainer):
         else:
             raise ValueError(f"Dataset {name} not recognized.")
         return x
-    
+
     def plot_and_log_flatness(self, losses: dict, split: str, plot_type: str):
         """
         If run is within a sweep, do nothing (cannot use matplotlib GUI from a non-main thread).
@@ -239,5 +314,7 @@ class AutoencoderTrainer(Trainer):
 
     def get_training_hyperparameters(self) -> dict:
         hyperparams = super().get_training_hyperparameters()
-        hyperparams["train_set_percentage_for_flatness"] = self.train_set_percentage_for_flatness
+        hyperparams["train_set_percentage_for_flatness"] = (
+            self.train_set_percentage_for_flatness
+        )
         return hyperparams
