@@ -59,7 +59,7 @@ class Trainer:
         :param log_to_wandb: whether to log to wandb
         :param log_interval: log training loss every log_interval steps
         :param log_images: whether to allow logging images to wandb (heavy!)
-        :param checkpoint_interval: save a checkpoint every checkpoint_interval epochs.
+        :param checkpoint_interval: save a checkpoint every checkpoint_interval epochs. if None, no checkpoints are saved.
         If None, no checkpoints are saved. To save only at the end of training, set it to epochs.
         :param checkpoint_root_dir: directory to save checkpoints
         :param target_loss: if not None, training stops when the train loss is below this value.
@@ -257,7 +257,7 @@ class Trainer:
             self.checkpoint_root_dir,
             architecture,
             self.train_metadata["id"],
-            str(self.epoch),
+            "epoch" + str(self.epoch),
         )
         os.makedirs(chkpt_dir, exist_ok=True)
         chkpt_path = os.path.join(chkpt_dir, "weights.pt")
