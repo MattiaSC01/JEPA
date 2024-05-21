@@ -43,6 +43,7 @@ class Trainer:
         compile_model: bool = True,
         is_sweep: bool = False,
         wandb_project: Optional[str] = None,
+        gradient_accumulation_steps: int = 1,
     ):
         """
         :param model: pytorch model
@@ -63,6 +64,9 @@ class Trainer:
         :param target_loss: if not None, training stops when the train loss is below this value.
         :param seed: random seed set at the beginning of training.
         :param compile_model: if True, call torch.compile(model) at the end of __init__.
+        :param is_sweep: if True, this is a sweep run.
+        :param wandb_project: name of the wandb project to log to.
+        :param gradient_accumulation_steps: number of steps to accumulate gradients before stepping. Not implemented for SAM.
         """
         if checkpoint_interval is None:
             checkpoint_interval = max_epochs + 1  # no checkpoints
@@ -94,6 +98,7 @@ class Trainer:
         self.wandb_project = wandb_project
         self.step = 0
         self.epoch = 0
+        self.gradient_accumulation_steps = gradient_accumulation_steps
         self.logger = WandbLogger(project=wandb_project, entity=ENTITY)
         self.model.to(self.device)
         if self.compile_model:
@@ -114,15 +119,20 @@ class Trainer:
         output = self.model(batch)
         losses = self.criterion(output, batch)
         loss = losses["loss"]
-        self.optimizer.zero_grad()
         loss.backward()
-        self.optimizer.step()
+        if self.step % self.gradient_accumulation_steps == 0:
+            self.optimizer.step()
+            self.optimizer.zero_grad()
         if self.log_to_wandb:
             self.log_on_train_step(losses)
         self.step += 1
         return loss.item()
 
     def train_step_sam(self, batch: dict) -> float:
+        if self.gradient_accumulation_steps > 1:
+            raise NotImplementedError(
+                "Gradient accumulation not implemented for SAM yet."
+            )
         for key in batch:
             if isinstance(batch[key], torch.Tensor):
                 batch[key] = batch[key].to(self.device)
