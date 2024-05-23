@@ -57,6 +57,9 @@ class WandbLogger:
         pil_image = self.tensor_to_PIL_image(images)
         self.run.log({name: wandb.Image(pil_image)}, step=step)
 
+    def log_text(self, text: str, name: str):
+        self.run.log({name: text})
+
     def log_plot(self, name: str, step: int):
         self.run.log({name: wandb.Image(plt)}, step=step)
 

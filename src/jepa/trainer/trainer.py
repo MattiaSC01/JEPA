@@ -115,17 +115,7 @@ class Trainer:
             torch.compile(self.model)
 
     def train_step(self, batch: dict) -> float:
-        for key in batch:
-            if isinstance(batch[key], torch.Tensor):
-                batch[key] = batch[key].to(self.device)
-            elif isinstance(batch[key], dict):
-                for k in batch[key]:
-                    if isinstance(batch[key][k], torch.Tensor):
-                        batch[key][k] = batch[key][k].to(self.device)
-            elif isinstance(batch[key], list):
-                for i, item in enumerate(batch[key]):
-                    if isinstance(item, torch.Tensor):
-                        batch[key][i] = item.to(self.device)
+        self.move_to_device(batch)
         output = self.model(batch)
         losses = self.criterion(output, batch)
         loss = losses["loss"]
@@ -174,6 +164,19 @@ class Trainer:
             return
         for key, value in losses.items():
             self.logger.log_metric(value.item(), f"train/{key}", self.step)
+
+    def move_to_device(self, batch: dict):
+        for key in batch:
+            if isinstance(batch[key], torch.Tensor):
+                batch[key] = batch[key].to(self.device)
+            elif isinstance(batch[key], dict):
+                for k in batch[key]:
+                    if isinstance(batch[key][k], torch.Tensor):
+                        batch[key][k] = batch[key][k].to(self.device)
+            elif isinstance(batch[key], list):
+                for i, item in enumerate(batch[key]):
+                    if isinstance(item, torch.Tensor):
+                        batch[key][i] = item.to(self.device)
 
     def train_epoch(self) -> float:
         self.model.train()
@@ -232,9 +235,7 @@ class Trainer:
             self.logger.end_run()
 
     def test_step(self, batch: dict) -> dict:
-        for key in batch:
-            if isinstance(batch[key], torch.Tensor):
-                batch[key] = batch[key].to(self.device)
+        self.move_to_device(batch)
         output = self.model(batch)
         losses = self.criterion(output, batch)
         return losses
