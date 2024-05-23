@@ -179,6 +179,9 @@ class Trainer:
                         batch[key][i] = item.to(self.device)
 
     def train_epoch(self) -> float:
+        if self.validation_interval and self.step % self.validation_interval == 0:
+            val_loss = self.test_epoch()
+            print(f"Step {self.step}   val_loss {val_loss:.4f}")
         self.model.train()
         loss = 0.0
         for batch in self.train_loader:
@@ -191,9 +194,6 @@ class Trainer:
         self.logger.log_metric(
             self.epoch, "val/epoch", self.step
         )  # redundant, but useful in the dashboard.
-        if self.validation_interval and self.step % self.validation_interval == 0:
-            val_loss = self.test_epoch()
-            print(f"Step {self.step}   val_loss {val_loss:.4f}")
         if self.epoch % self.checkpoint_interval == 0:
             self.make_checkpoint()
         return loss / len(self.train_loader)
