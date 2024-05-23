@@ -1,4 +1,5 @@
 from collections import defaultdict
+import time
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
@@ -45,6 +46,7 @@ class Trainer:
         wandb_project: Optional[str] = None,
         gradient_accumulation_steps: int = 1,
         validation_interval: Optional[int] = None,
+        run_id: Optional[str] = None,
     ):
         """
         :param model: pytorch model
@@ -69,6 +71,7 @@ class Trainer:
         :param wandb_project: name of the wandb project to log to.
         :param gradient_accumulation_steps: number of steps to accumulate gradients before stepping. Not implemented for SAM.
         :param validation_interval: if not None, do a test epoch every validation_interval steps, in addition to the end of each train epoch.
+        :param run_id: a unique identifier of the training run. If not provided, it is set to an integer (avoiding collisions)
         """
         if checkpoint_interval is None:
             checkpoint_interval = max_epochs + 1  # no checkpoints
@@ -103,6 +106,9 @@ class Trainer:
         self.epoch = 0
         self.gradient_accumulation_steps = gradient_accumulation_steps
         self.validation_interval = validation_interval
+        if run_id is None:
+            run_id = str(time.time()).split(".")[0]  # seconds since beginning of time
+        self.run_id = run_id
         self.logger = WandbLogger(project=wandb_project, entity=ENTITY)
         self.model.to(self.device)
         if self.compile_model:
@@ -250,15 +256,9 @@ class Trainer:
 
     def make_checkpoint(self):
         # TODO: test changes to this method
-        architecture = (
-            self.model.get_architecture()["type"]
-            if hasattr(self.model, "get_architecture")
-            else "custom"
-        )
         chkpt_dir = os.path.join(
             self.checkpoint_root_dir,
-            architecture,
-            self.train_metadata["id"],
+            self.run_id,
             "epoch" + str(self.epoch),
         )
         os.makedirs(chkpt_dir, exist_ok=True)
@@ -269,6 +269,7 @@ class Trainer:
             "step": self.step,
             "epoch": self.epoch,
             "date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "run_id": self.run_id,
             "optimizer": self.get_optimizer_hyperparameters(),
             "architecture": (
                 self.model.get_architecture()
