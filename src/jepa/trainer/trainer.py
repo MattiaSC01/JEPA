@@ -210,7 +210,7 @@ class Trainer:
         if (
             self.should_do_validation
             and self.validation_interval
-            and (self.step == 1 or self.step % self.validation_interval) == 0
+            and ((self.step == 1) or (self.step % self.validation_interval == 0))
         ):
             val_loss = self.test_epoch()
             print(f"Step {self.step}   val_loss {val_loss:.4f}")
