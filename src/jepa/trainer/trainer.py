@@ -134,7 +134,7 @@ class Trainer:
             self.log_on_train_step(losses)
         self.clock += 1
         return loss.item()
-    
+
     def increase_step(self):
         if self.step % self.log_interval == 0:
             self.logger.log_metrics(self.step)
@@ -205,13 +205,17 @@ class Trainer:
         if self.epoch % self.checkpoint_interval == 0:
             self.make_checkpoint()
         return loss / len(self.train_loader)
-    
+
     def subepoch_validation(self):
-        if self.should_do_validation and self.validation_interval and self.step % self.validation_interval == 0:
+        if (
+            self.should_do_validation
+            and self.validation_interval
+            and (self.step == 1 or self.step % self.validation_interval) == 0
+        ):
             val_loss = self.test_epoch()
             print(f"Step {self.step}   val_loss {val_loss:.4f}")
         self.should_do_validation = False
-        
+
     def train(self):
         if self.log_to_wandb:
             self.setup_wandb()
@@ -305,7 +309,9 @@ class Trainer:
             self.logger.log_checkpoint(chkpt_dir, artifact_name)
 
     def setup_wandb(self):
-        self.logger.init_run(self.model, is_sweep=self.is_sweep, watch_model=self.watch_model)
+        self.logger.init_run(
+            self.model, is_sweep=self.is_sweep, watch_model=self.watch_model
+        )
         self.logger.use_dataset(self.train_metadata)
         if self.test_metadata:
             self.logger.use_dataset(self.test_metadata)
