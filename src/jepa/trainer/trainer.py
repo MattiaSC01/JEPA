@@ -127,7 +127,8 @@ class Trainer:
         if self.clock % self.gradient_accumulation_steps == 0:
             self.optimizer.step()
             self.optimizer.zero_grad()
-            self.logger.log_metrics(self.step)
+            if self.step % self.log_interval == 0:
+                self.logger.log_metrics(self.step)
             self.step += 1
         if self.log_to_wandb:
             self.log_on_train_step(losses)
@@ -166,8 +167,6 @@ class Trainer:
         """
         :param losses: dictionary with loss values
         """
-        if self.step % self.log_interval != 0:
-            return
         for key, value in losses.items():
             self.logger.add_metric(value.item(), f"train/{key}", self.step)
 

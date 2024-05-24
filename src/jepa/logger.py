@@ -6,6 +6,7 @@ import pandas as pd
 import wandb
 from collections import defaultdict
 from typing import Union, Optional
+import numpy as np
 
 
 # TODO: implement a mechanism to clean up local disk space by deleting old runs in the wandb directory (? - dangerous)
@@ -15,6 +16,8 @@ class WandbLogger:
     """
     Handles logging of metrics, images, model checkpoints
     and datasets to Weights and Biases.
+    self.metrics contains the history of numerical metrics
+    self.to_be_logged contains the metrics that have been added but not logged yet.
     """
 
     def __init__(
@@ -24,8 +27,10 @@ class WandbLogger:
     ) -> None:
         self.project = project
         self.entity = entity
-        self.metrics = defaultdict(dict)  # {step: {metric_name: value}}
-        self.last_step_metrics = 0
+        self.metrics_names = set()
+        self.last_update_of_metric = {}  # {metric_name: last_step}
+        self.metrics = defaultdict(defaultdict(list))  # {step: {metric_name: list_of_values}}
+        self.to_be_logged = defaultdict(list)  # {metric_name: list_of_values}
 
     def init_run(self, model, is_sweep: bool = False, watch_model: bool = True):
         if is_sweep:
@@ -42,19 +47,28 @@ class WandbLogger:
 
     def add_metric(self, value, name: str, step: int):
         print(f"Adding metric {name}: {value}. Step: {step}")
-        self.metrics[step][name] = value
-        self.last_step_metrics = step
+        self.metrics[step][name].append(value)
+        self.to_be_logged[name].append(value)
+        self.metrics_names.add(name)
+        self.last_update_of_metric[name] = step
 
     def log_metrics(self, step: int):
-        metrics = self.metrics[step]
+        metrics = {}
+        for name, values in self.to_be_logged.items():
+            metrics[name] = np.mean(values).item()
         if metrics:
             self.run.log(metrics, step=step)
             print(f"Logged metrics at step {step}: ", metrics)
+        self.to_be_logged = defaultdict(list)  # flush
 
     def get_last_metrics_values(self, prefix: Optional[str] = None):
-        for name, values in self.metrics[self.last_step_metrics].items():
-            if prefix is None or name.startswith(prefix):
-                yield name, values[-1]
+        for metric_name in self.metrics_names:
+            if prefix is None or metric_name.startswith(prefix):
+                if metric_name not in self.last_update_of_metric:
+                    continue
+                last_step = self.last_update_of_metric[metric_name]
+                last_value = self.metrics[last_step][metric_name][-1]
+                yield metric_name, last_value
 
     def log_tensor_as_image(
         self, images: Union[list, torch.Tensor], name: str, step: int
