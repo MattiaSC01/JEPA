@@ -49,6 +49,7 @@ class Trainer:
         gradient_accumulation_steps: int = 1,
         validation_interval: Optional[int] = None,
         run_id: Optional[str] = None,
+        watch_model: bool = True,
     ):
         """
         :param model: pytorch model
@@ -111,6 +112,7 @@ class Trainer:
         if run_id is None:
             run_id = str(time.time()).split(".")[0]  # seconds since beginning of time
         self.run_id = run_id
+        self.watch_model = watch_model
         self.logger = WandbLogger(project=wandb_project, entity=ENTITY)
         self.model.to(self.device)
         if self.compile_model:
@@ -185,7 +187,7 @@ class Trainer:
     def train_epoch(self) -> float:
         self.model.train()
         loss = 0.0
-        for batch in tqdm(self.train_loader):
+        for batch in self.train_loader:
             if self.validation_interval and self.step % self.validation_interval == 0:
                 val_loss = self.test_epoch()
                 print(f"Step {self.step}   val_loss {val_loss:.4f}")
@@ -295,7 +297,7 @@ class Trainer:
             self.logger.log_checkpoint(chkpt_dir, artifact_name)
 
     def setup_wandb(self):
-        self.logger.init_run(self.model, is_sweep=self.is_sweep)
+        self.logger.init_run(self.model, is_sweep=self.is_sweep, watch_model=self.watch_model)
         self.logger.use_dataset(self.train_metadata)
         if self.test_metadata:
             self.logger.use_dataset(self.test_metadata)
