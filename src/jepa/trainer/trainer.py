@@ -104,8 +104,8 @@ class Trainer:
         self.compile_model = compile_model
         self.is_sweep = is_sweep
         self.wandb_project = wandb_project
-        self.step = 0
-        self.clock = 0
+        self.step = 1
+        self.clock = 1
         self.epoch = 0
         self.gradient_accumulation_steps = gradient_accumulation_steps
         self.validation_interval = validation_interval
