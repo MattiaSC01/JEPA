@@ -40,13 +40,14 @@ class WandbLogger:
         self.run.watch(model, log="all")
 
     def add_metric(self, value, name: str, step: int):
-        print(f"Logging metric {name}: {value}. Step: {step}")
+        print(f"Adding metric {name}: {value}. Step: {step}")
         self.metrics[step][name] = value
         self.last_step = step
 
     def log_metrics(self):
         metrics = self.metrics[self.last_step]
         self.run.log(metrics, step=self.last_step)
+        print("Logged metrics:", metrics)
 
     def get_last_metrics_values(self, prefix: Optional[str] = None):
         for name, values in self.metrics[self.last_step].items():

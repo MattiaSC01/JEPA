@@ -1,5 +1,7 @@
 from collections import defaultdict
 import time
+
+from tqdm import tqdm
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
@@ -183,7 +185,7 @@ class Trainer:
     def train_epoch(self) -> float:
         self.model.train()
         loss = 0.0
-        for batch in self.train_loader:
+        for batch in tqdm(self.train_loader):
             if self.validation_interval and self.step % self.validation_interval == 0:
                 val_loss = self.test_epoch()
                 print(f"Step {self.step}   val_loss {val_loss:.4f}")
@@ -246,7 +248,7 @@ class Trainer:
     def test_epoch(self) -> float:
         self.model.eval()
         avg_losses = defaultdict(float)
-        for batch in self.test_loader:
+        for batch in tqdm(self.test_loader):
             losses = self.test_step(batch)
             for key, value in losses.items():
                 avg_losses[key] += value.item()
