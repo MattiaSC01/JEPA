@@ -25,7 +25,7 @@ class WandbLogger:
         self.project = project
         self.entity = entity
         self.metrics = defaultdict(dict)  # {step: {metric_name: value}}
-        self.last_step = 0
+        self.last_step_metrics = 0
 
     def init_run(self, model, is_sweep: bool = False):
         if is_sweep:
@@ -42,15 +42,16 @@ class WandbLogger:
     def add_metric(self, value, name: str, step: int):
         print(f"Adding metric {name}: {value}. Step: {step}")
         self.metrics[step][name] = value
-        self.last_step = step
+        self.last_step_metrics = step
 
-    def log_metrics(self):
-        metrics = self.metrics[self.last_step]
-        self.run.log(metrics, step=self.last_step)
-        print("Logged metrics:", metrics)
+    def log_metrics(self, step: int):
+        metrics = self.metrics[step]
+        if metrics:
+            self.run.log(metrics, step=step)
+            print("Logged metrics: ", metrics)
 
     def get_last_metrics_values(self, prefix: Optional[str] = None):
-        for name, values in self.metrics[self.last_step].items():
+        for name, values in self.metrics[self.last_step_metrics].items():
             if prefix is None or name.startswith(prefix):
                 yield name, values[-1]
 

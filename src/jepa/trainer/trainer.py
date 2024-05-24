@@ -125,7 +125,7 @@ class Trainer:
         if self.clock % self.gradient_accumulation_steps == 0:
             self.optimizer.step()
             self.optimizer.zero_grad()
-            self.logger.log_metrics()
+            self.logger.log_metrics(self.step)
             self.step += 1
         if self.log_to_wandb:
             self.log_on_train_step(losses)
