@@ -29,7 +29,7 @@ class WandbLogger:
         self.entity = entity
         self.metrics_names = set()
         self.last_update_of_metric = {}  # {metric_name: last_step}
-        self.metrics = defaultdict(defaultdict(list))  # {step: {metric_name: list_of_values}}
+        self.metrics = defaultdict(lambda: defaultdict(list))  # {step: {metric_name: list_of_values}}
         self.to_be_logged = defaultdict(list)  # {metric_name: list_of_values}
 
     def init_run(self, model, is_sweep: bool = False, watch_model: bool = True):

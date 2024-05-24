@@ -109,6 +109,8 @@ class Trainer:
         self.epoch = 0
         self.gradient_accumulation_steps = gradient_accumulation_steps
         self.validation_interval = validation_interval
+        # to avoid doing validation multiple times at the same step with grad acc
+        self.should_do_validation = True
         if run_id is None:
             run_id = str(time.time()).split(".")[0]  # seconds since beginning of time
         self.run_id = run_id
@@ -127,13 +129,17 @@ class Trainer:
         if self.clock % self.gradient_accumulation_steps == 0:
             self.optimizer.step()
             self.optimizer.zero_grad()
-            if self.step % self.log_interval == 0:
-                self.logger.log_metrics(self.step)
-            self.step += 1
+            self.increase_step()
         if self.log_to_wandb:
             self.log_on_train_step(losses)
         self.clock += 1
         return loss.item()
+    
+    def increase_step(self):
+        if self.step % self.log_interval == 0:
+            self.logger.log_metrics(self.step)
+        self.step += 1
+        self.should_do_validation = True
 
     def train_step_sam(self, batch: dict) -> float:
         if self.gradient_accumulation_steps > 1:
@@ -157,8 +163,7 @@ class Trainer:
         self.criterion(output, batch)["loss"].backward()
         # move back to w and use base optimizer to update weights.
         self.optimizer.second_step()
-        self.logger.log_metrics()
-        self.step += 1
+        self.increase_step()
         if self.log_to_wandb:
             self.log_on_train_step(losses)  # log loss from first pass
         return loss.item()
@@ -187,9 +192,7 @@ class Trainer:
         self.model.train()
         loss = 0.0
         for batch in self.train_loader:
-            if self.validation_interval and self.step % self.validation_interval == 0:
-                val_loss = self.test_epoch()
-                print(f"Step {self.step}   val_loss {val_loss:.4f}")
+            self.subepoch_validation()
             if isinstance(self.optimizer, SAM):
                 loss += self.train_step_sam(batch)
             else:
@@ -202,7 +205,13 @@ class Trainer:
         if self.epoch % self.checkpoint_interval == 0:
             self.make_checkpoint()
         return loss / len(self.train_loader)
-
+    
+    def subepoch_validation(self):
+        if self.should_do_validation and self.validation_interval and self.step % self.validation_interval == 0:
+            val_loss = self.test_epoch()
+            print(f"Step {self.step}   val_loss {val_loss:.4f}")
+        self.should_do_validation = False
+        
     def train(self):
         if self.log_to_wandb:
             self.setup_wandb()
