@@ -253,7 +253,7 @@ class Trainer:
         if self.log_to_wandb:
             for key, value in avg_losses.items():
                 self.logger.log_metric(value, f"val/{key}", self.step)
-        return losses["loss"].item()
+        return avg_losses["loss"].item()
 
     def make_checkpoint(self):
         # TODO: test changes to this method
