@@ -123,6 +123,7 @@ class Trainer:
         if self.clock % self.gradient_accumulation_steps == 0:
             self.optimizer.step()
             self.optimizer.zero_grad()
+            self.logger.log_metrics()
             self.step += 1
         if self.log_to_wandb:
             self.log_on_train_step(losses)
@@ -151,6 +152,7 @@ class Trainer:
         self.criterion(output, batch)["loss"].backward()
         # move back to w and use base optimizer to update weights.
         self.optimizer.second_step()
+        self.logger.log_metrics()
         self.step += 1
         if self.log_to_wandb:
             self.log_on_train_step(losses)  # log loss from first pass
@@ -163,7 +165,7 @@ class Trainer:
         if self.step % self.log_interval != 0:
             return
         for key, value in losses.items():
-            self.logger.log_metric(value.item(), f"train/{key}", self.step)
+            self.logger.add_metric(value.item(), f"train/{key}", self.step)
 
     def move_to_device(self, batch: dict):
         for key in batch:
@@ -179,19 +181,19 @@ class Trainer:
                         batch[key][i] = item.to(self.device)
 
     def train_epoch(self) -> float:
-        if self.validation_interval and self.step % self.validation_interval == 0:
-            val_loss = self.test_epoch()
-            print(f"Step {self.step}   val_loss {val_loss:.4f}")
         self.model.train()
         loss = 0.0
         for batch in self.train_loader:
+            if self.validation_interval and self.step % self.validation_interval == 0:
+                val_loss = self.test_epoch()
+                print(f"Step {self.step}   val_loss {val_loss:.4f}")
             if isinstance(self.optimizer, SAM):
                 loss += self.train_step_sam(batch)
             else:
                 loss += self.train_step(batch)
         self.epoch += 1
-        self.logger.log_metric(self.epoch, "train/epoch", self.step)
-        self.logger.log_metric(
+        self.logger.add_metric(self.epoch, "train/epoch", self.step)
+        self.logger.add_metric(
             self.epoch, "val/epoch", self.step
         )  # redundant, but useful in the dashboard.
         if self.epoch % self.checkpoint_interval == 0:
@@ -252,7 +254,7 @@ class Trainer:
             avg_losses[key] /= len(self.test_loader)
         if self.log_to_wandb:
             for key, value in avg_losses.items():
-                self.logger.log_metric(value, f"val/{key}", self.step)
+                self.logger.add_metric(value, f"val/{key}", self.step)
         return avg_losses["loss"]
 
     def make_checkpoint(self):

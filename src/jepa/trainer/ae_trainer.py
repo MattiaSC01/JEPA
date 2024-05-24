@@ -67,22 +67,22 @@ class AutoencoderTrainer(Trainer):
         if self.step % (self.log_interval * 20) == 0:
             encoder_norms = norm_of_parameters(self.model.encoder)
             decoder_norms = norm_of_parameters(self.model.decoder)
-            self.logger.log_metric(
+            self.logger.add_metric(
                 encoder_norms["weight_norm"] / encoder_norms["weight_count"],
                 "norms/encoder_weight_norm",
                 self.step,
             )
-            self.logger.log_metric(
+            self.logger.add_metric(
                 encoder_norms["bias_norm"] / encoder_norms["bias_count"],
                 "norms/encoder_bias_norm",
                 self.step,
             )
-            self.logger.log_metric(
+            self.logger.add_metric(
                 decoder_norms["weight_norm"] / decoder_norms["weight_count"],
                 "norms/decoder_weight_norm",
                 self.step,
             )
-            self.logger.log_metric(
+            self.logger.add_metric(
                 decoder_norms["bias_norm"] / decoder_norms["bias_count"],
                 "norms/decoder_bias_norm",
                 self.step,
@@ -127,8 +127,8 @@ class AutoencoderTrainer(Trainer):
         """
         train_dl, test_dl = self.build_latent_datasets()
         accs = self.train_classifier(train_dl, test_dl)
-        self.logger.log_metric(max(accs), "classification/best_acc", self.step)
-        self.logger.log_metric(accs[-1], "classification/final_acc", self.step)
+        self.logger.add_metric(max(accs), "classification/best_acc", self.step)
+        self.logger.add_metric(accs[-1], "classification/final_acc", self.step)
         if self.is_sweep:
             return
         plt.figure()
@@ -216,11 +216,11 @@ class AutoencoderTrainer(Trainer):
         for sigma in df.columns:
             mean = df[sigma].mean()
             std = df[sigma].std()
-            self.logger.log_metric(mean, f"flatness/{split}/mean_{sigma}", self.step)
-            self.logger.log_metric(std, f"flatness/{split}/std_{sigma}", self.step)
+            self.logger.add_metric(mean, f"flatness/{split}/mean_{sigma}", self.step)
+            self.logger.add_metric(std, f"flatness/{split}/std_{sigma}", self.step)
         avg_diff = df.mean().mean() - df.iloc[0, 0]
-        self.logger.log_metric(avg_diff, f"flatness/{split}/avg_diff", self.step)
-        self.logger.log_metric(
+        self.logger.add_metric(avg_diff, f"flatness/{split}/avg_diff", self.step)
+        self.logger.add_metric(
             avg_diff, f"{split}/flatness_avg_diff", self.step
         )  # redundant, but useful in the dashboard.
         # self.logger.log_table(df, f"tables/{split}_flatness", self.step)
@@ -236,11 +236,11 @@ class AutoencoderTrainer(Trainer):
         for sigma in df.columns:
             mean = df[sigma].mean()
             std = df[sigma].std()
-            self.logger.log_metric(mean, f"denoising/{split}/mean_{sigma}", self.step)
-            self.logger.log_metric(std, f"denoising/{split}/std_{sigma}", self.step)
+            self.logger.add_metric(mean, f"denoising/{split}/mean_{sigma}", self.step)
+            self.logger.add_metric(std, f"denoising/{split}/std_{sigma}", self.step)
         avg_diff = df.mean().mean() - df.iloc[0, 0]
-        self.logger.log_metric(avg_diff, f"denoising/{split}/avg_diff", self.step)
-        self.logger.log_metric(
+        self.logger.add_metric(avg_diff, f"denoising/{split}/avg_diff", self.step)
+        self.logger.add_metric(
             avg_diff, f"{split}/denoising_avg_diff", self.step
         )  # redundant, but useful in the dashboard.
         # self.logger.log_table(df, f"tables/{split}_denoising", self.step)

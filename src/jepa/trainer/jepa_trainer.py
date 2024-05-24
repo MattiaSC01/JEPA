@@ -37,46 +37,46 @@ class JepaTrainer(Trainer):
         super().log_on_train_step(losses)
         if self.step % (self.log_interval * 20) == 0:
             norms = self.model.norms_and_similarities()
-            self.logger.log_metric(
+            self.logger.add_metric(
                 norms["similarity"]["weight_similarity"],
                 "norms/weight_similarity",
                 self.step,
             )
-            self.logger.log_metric(
+            self.logger.add_metric(
                 norms["similarity"]["bias_similarity"],
                 "norms/bias_similarity",
                 self.step,
             )
-            self.logger.log_metric(
+            self.logger.add_metric(
                 norms["predictor_norms"]["weight_norm"]
                 / norms["predictor_norms"]["weight_count"],
                 "norms/predictor_weight_norm",
                 self.step,
             )
-            self.logger.log_metric(
+            self.logger.add_metric(
                 norms["predictor_norms"]["bias_norm"]
                 / norms["predictor_norms"]["bias_count"],
                 "norms/predictor_bias_norm",
                 self.step,
             )
-            self.logger.log_metric(
+            self.logger.add_metric(
                 norms["encoder_norms"]["weight_norm"]
                 / norms["encoder_norms"]["weight_count"],
                 "norms/encoder_weight_norm",
                 self.step,
             )
-            self.logger.log_metric(
+            self.logger.add_metric(
                 norms["encoder_norms"]["bias_norm"]
                 / norms["encoder_norms"]["bias_count"],
                 "norms/encoder_bias_norm",
                 self.step,
             )
-            self.logger.log_metric(
+            self.logger.add_metric(
                 norms["ema_norms"]["weight_norm"] / norms["ema_norms"]["weight_count"],
                 "norms/ema_weight_norm",
                 self.step,
             )
-            self.logger.log_metric(
+            self.logger.add_metric(
                 norms["ema_norms"]["bias_norm"] / norms["ema_norms"]["bias_count"],
                 "norms/ema_bias_norm",
                 self.step,
@@ -102,8 +102,8 @@ class JepaTrainer(Trainer):
         """
         train_dl, test_dl = self.build_latent_datasets()
         accs = self.train_classifier(train_dl, test_dl)
-        self.logger.log_metric(max(accs), "classification/best_acc", self.step)
-        self.logger.log_metric(accs[-1], "classification/final_acc", self.step)
+        self.logger.add_metric(max(accs), "classification/best_acc", self.step)
+        self.logger.add_metric(accs[-1], "classification/final_acc", self.step)
         if self.is_sweep:
             return
         plt.figure()
