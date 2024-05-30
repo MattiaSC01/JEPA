@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from typing import Optional
 import numpy as np
 from sklearn.linear_model import LogisticRegression
+from sklearn.decomposition import PCA
 
 from .trainer import Trainer
 from ..model.jepa import Jepa
@@ -22,7 +23,7 @@ class JepaTrainer(Trainer):
             **kwargs
         ):
         super().__init__(**kwargs)
-        assert isinstance(self.model, Jepa) or isinstance(self.model, JepaAdv), "JepaTrainer expects a Jepa model."
+        assert isinstance(self.model, Jepa), "JepaTrainer expects a Jepa model."
         self.alpha = alpha
         self.classification_interval = classification_interval
         self.classification_epochs = classification_epochs
@@ -58,8 +59,19 @@ class JepaTrainer(Trainer):
             labels = demo_batch['y'].detach().cpu().numpy()
             context_repr = self.model.encoder(data).detach().cpu().numpy()
             target_repr = self.model.ema(data).detach().cpu().numpy()
+            data = data.detach().cpu().numpy()
             _, axs = plt.subplots(1, 3)
-            axs[0].scatter(data[:,0].detach().cpu().numpy(), data[:,1].detach().cpu().numpy(), c=labels)
+
+            # When using other datasets, we have to reduce the dim here
+            if data.shape[1] > 2:
+                data_pca = PCA(n_components=2)
+                context_pca = PCA(n_components=2)
+                target_pca = PCA(n_components=2)
+                data = data_pca.fit_transform(data)
+                context_repr = context_pca.fit_transform(context_repr)
+                target_repr = target_pca.fit_transform(target_repr)
+                
+            axs[0].scatter(data[:,0], data[:,1], c=labels)
             axs[0].set_title('Input data')
             axs[1].scatter(context_repr[:,0], context_repr[:,1], c=labels)
             axs[1].set_title('Context')
@@ -71,9 +83,9 @@ class JepaTrainer(Trainer):
 
             # Log predictor weights
             pred_w, pred_b = self.model.predictor[0].weight.detach().cpu(), self.model.predictor[0].bias.detach().cpu()
-            act_matrix = torch.cat([pred_w], 1).numpy()
+            act_matrix = torch.cat([pred_w, pred_b.unsqueeze(-1)], 1).numpy()
             sns.heatmap(act_matrix, annot=True)
-            plt.title('predictor weights')
+            plt.title('predictor weights and bias (last col)')
             plt.tight_layout()
             self.logger.log_plot("repr/predictor_weights", self.step)
             plt.close()        
@@ -111,14 +123,6 @@ class JepaTrainer(Trainer):
         return train_dl, test_dl
     
     def train_classifier(self, train_dl: DataLoader, test_dl: DataLoader) -> list:
-        # latent_dim = next(iter(train_dl))["x"].shape[1]
-        # num_classes = len(train_dl.dataset.labels.unique())
-        # classifier = nn.Linear(latent_dim, num_classes).to(self.device)
-        # optimizer = torch.optim.AdamW(classifier.parameters(), lr=1e-3, weight_decay=1e-3)
-        # criterion = nn.CrossEntropyLoss()
-        # accs = train_classifier(classifier=classifier, train_loader=train_dl, test_loader=test_dl, 
-        #                         optimizer=optimizer, criterion=criterion, device=self.device, epochs=self.classification_epochs)
-        
         x_train, y_train = [], []
         for b in train_dl:
             x_train.append(b['x'].detach().cpu().numpy())
@@ -131,7 +135,8 @@ class JepaTrainer(Trainer):
             y_test.append(b['y'].detach().cpu().numpy())
         x_test, y_test = np.vstack(x_test), np.hstack(y_test) 
 
-        lr = LogisticRegression(C=2, max_iter=10000)
+        multiclass_opt = "multinomial" if len(np.unique(y_train)) > 2 else "auto" # For multiclass
+        lr = LogisticRegression(C=2, max_iter=10000,  multi_class=multiclass_opt)
         lr.fit(x_train, y_train)
         pred = lr.predict(x_test)
         accs = sum(pred==y_test)/len(y_test)

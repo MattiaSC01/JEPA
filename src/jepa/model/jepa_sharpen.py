@@ -29,14 +29,22 @@ class nd_act(nn.Module):
 class JepaSharpen(nn.Module):
     def __init__(
             self,
+            data_name: str,
             in_dim: int,
             hidden_dim: int,
             seed: int = 42,
     ):
         super().__init__()
         self.ctx_encoder_w1 = nn.Linear(in_dim, hidden_dim)
-        self.ctx_encoder_w2 = nn.Linear(hidden_dim, in_dim)
-        self.predictor = nn.Linear(in_dim, in_dim)
+
+        # Build hidden layer and predictor based on the input dataset
+        if "toy" in data_name:
+            self.ctx_encoder_w2 = nn.Linear(hidden_dim, in_dim)
+            self.predictor = nn.Linear(in_dim, in_dim)
+        else:
+            self.ctx_encoder_w2 = nn.Linear(hidden_dim, hidden_dim)
+            self.predictor = nn.Linear(hidden_dim, hidden_dim)
+
         self.delta_wr1 = deepcopy(self.ctx_encoder_w1)
         self.delta_wr2 = deepcopy(self.ctx_encoder_w2)
         self.nd_act = nd_act()
@@ -60,9 +68,9 @@ class JepaSharpen(nn.Module):
     def forward(self, batch: dict) -> dict:
         x = batch["x"]
         x_hat = batch["x_hat"]
-        context_out = self.ctx_encoder_w2(F.relu(self.ctx_encoder_w1(x)))
+        context_out = self.ctx_encoder_w2(F.gelu(self.ctx_encoder_w1(x)))
         predictor_out = self.predictor(context_out)
-        perturbation = F.relu(self.ctx_encoder_w1(x_hat) + self.delta_wr1(x_hat))
+        perturbation = F.gelu(self.ctx_encoder_w1(x_hat) + self.delta_wr1(x_hat))
         target_out = self.nd_act(self.ctx_encoder_w2(perturbation) + self.delta_wr2(perturbation)) # Formulation with negated gradient identity map
         
         return {
@@ -93,12 +101,12 @@ class JepaSharpen(nn.Module):
     
     @torch.no_grad()
     def encode(self, x):
-        latent_code = self.ctx_encoder_w2(F.relu(self.ctx_encoder_w1(x))) # TODO: Do we want to use this for the classification? Effectively, when the model is trained, one cannot perturb so it should be like this.
+        latent_code = self.ctx_encoder_w2(F.gelu(self.ctx_encoder_w1(x))) # TODO: Do we want to use this for the classification? Effectively, when the model is trained, one cannot perturb so it should be like this.
         return latent_code # We always use this for the classifier, this way the forward function is only used for training.
 
     @torch.no_grad()
     def context_encode(self, x):
-        latent_code = F.relu(self.ctx_encoder_w1(x) + self.delta_wr1(x)) 
+        latent_code = F.gelu(self.ctx_encoder_w1(x) + self.delta_wr1(x)) 
         return latent_code 
 
     @torch.no_grad()

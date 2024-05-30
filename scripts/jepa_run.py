@@ -11,23 +11,28 @@ from src.jepa.model.jepa import Jepa, JepaCriterion
 from src.jepa.trainer.jepa_trainer import JepaTrainer
 from src.jepa.sam import SAM
 
-os.environ["WANDB__SERVICE_WAIT"] = "300"
+# os.environ["WANDB__SERVICE_WAIT"] = "300"
 
 # fixed hyperparams
-load_dataset = load_2Dtoy
+# load_dataset = load_2Dtoy
 toy_dataset_type = 'circle'
 toy_noise_scale = 0.0
-in_dim = 2
-hidden_dim = in_dim*10
-train_size = 16384
-test_size = 4096
-batch_size = 64
-lr = 0.0005
-weight_decay = 5e-5
+# lr = 0.0005
+# weight_decay = 5e-5
+# batch_size = 64
+# alpha = 0.985
+# log_interval = 10 # batches
+
+load_dataset = load_cifar
+# load_dataset = load_mnist
+batch_size = 128
+alpha = 0.99
+lr = 0.000001
+weight_decay = 1e-6
 sparsity_weight = 0.0
-max_epochs = 100
-gpu_num = 2
-device = "cpu" if not torch.cuda.is_available() else f"cuda:{gpu_num}"
+max_epochs = 50
+gpu_idx = 1
+device = "cpu" if not torch.cuda.is_available() else f"cuda:{gpu_idx}"
 compile_model = True
 # base_optimizer = torch.optim.SGD
 base_optimizer = torch.optim.AdamW
@@ -36,10 +41,9 @@ optimizer_class = "ema"
 rho = 100.0
 seed = 42
 target_loss = 0.00
-alpha = 0.985
 log_to_wandb = True
 log_images = True
-log_interval = 1 # batches
+log_interval = 100 # batches
 checkpoint_interval = max_epochs # epochs
 classification_interval = 10
 classification_epochs = 3
@@ -57,26 +61,44 @@ if load_dataset.__name__ == 'load_2Dtoy':
         seed=seed
     )
 else:
-    train_dataset, train_metadata = load_dataset(train=True, log_to_wandb=False, project=wandb_project, root=root, jepa=True, shuffle=seed, num_samples=train_size)
-    test_dataset, test_metadata = load_dataset(train=False, log_to_wandb=False, project=wandb_project, root=root, jepa=True, shuffle=seed, num_samples=test_size)
+    train_dataset, train_metadata = load_dataset(train=True, log_to_wandb=False, project=wandb_project, root=root, jepa=True, shuffle=seed)
+    test_dataset, test_metadata = load_dataset(train=False, log_to_wandb=False, project=wandb_project, root=root, jepa=True, shuffle=seed)
 train_metadata["use_as"] = "train"
 test_metadata["use_as"] = "test"
-train_loader = DataLoader(train_dataset, batch_size=batch_size)
-test_loader = DataLoader(test_dataset, batch_size=batch_size)  # be mindful of the batch size
+train_loader = DataLoader(train_dataset, batch_size=batch_size, num_workers=4)
+test_loader = DataLoader(test_dataset, batch_size=batch_size, num_workers=4)  # be mindful of the batch size
 print('Data shapes')
 print(len(train_dataset), len(test_dataset))
 
 # model components
-encoder = torch.nn.Sequential(
-    nn.Linear(in_dim, hidden_dim),
-    nn.ReLU(),
-    nn.Linear(hidden_dim, in_dim),
-    # nn.ReLU(),
-    # nn.Linear(hidden_dim, in_dim),
-)
-predictor = torch.nn.Sequential(
-    nn.Linear(in_dim, in_dim)
-)
+if load_dataset.__name__ == 'load_2Dtoy':
+    in_dim = 2
+    hidden_dim = in_dim*10
+
+    encoder = torch.nn.Sequential(
+        nn.Linear(in_dim, hidden_dim),
+        nn.ReLU(),
+        nn.Linear(hidden_dim, in_dim),
+    )
+    predictor = torch.nn.Sequential(
+        nn.Linear(in_dim, in_dim)
+    )
+else:
+    in_dim = train_dataset[0]['x'].shape[0]
+    if load_dataset.__name__ == 'load_cifar':
+        hidden_dim = 1024
+    else:
+        hidden_dim = 256
+
+    encoder = torch.nn.Sequential(
+        nn.Linear(in_dim, hidden_dim),
+        nn.ReLU(),
+        nn.Linear(hidden_dim, hidden_dim),
+    )
+    predictor = torch.nn.Sequential(
+        nn.Linear(hidden_dim, hidden_dim)
+    )
+
 
 # init model and optim accordingly to the experiment
 model = Jepa(encoder=encoder, predictor=predictor, seed=seed)
@@ -89,7 +111,11 @@ scheduler = None
 
 
 now = datetime.now()
-wandb_run_name = f'{optimizer_class}-{base_optimizer.__name__}-{toy_dataset_type}--{now}'
+if load_dataset.__name__ == 'load_2Dtoy':
+    wandb_run_name = f'{optimizer_class}-{base_optimizer.__name__}-{toy_dataset_type}--{now}'
+else:
+    wandb_run_name = f'{optimizer_class}-{base_optimizer.__name__}-{load_dataset.__name__}--{now}'
+    
 train_config = {
     "model": model,
     "optimizer": optimizer,

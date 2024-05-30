@@ -5,6 +5,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 from typing import Optional, Union
+from sklearn.linear_model import LogisticRegression
+from sklearn.decomposition import PCA
 from .trainer import Trainer
 from ..model.autoencoder import AutoEncoder
 from ..evaluation import EvalAE, norm_of_parameters, build_dataset_of_latents, train_classifier
@@ -60,7 +62,30 @@ class AutoencoderTrainer(Trainer):
             self.logger.log_metric(encoder_norms["bias_norm"] / encoder_norms["bias_count"], "norms/encoder_bias_norm", self.step)
             self.logger.log_metric(decoder_norms["weight_norm"] / decoder_norms["weight_count"], "norms/decoder_weight_norm", self.step)
             self.logger.log_metric(decoder_norms["bias_norm"] / decoder_norms["bias_count"], "norms/decoder_bias_norm", self.step)
-    
+
+            # Log representations
+            demo_batch = next(iter(self.train_loader))
+            data = demo_batch['x'].to(self.device)
+            labels = demo_batch['y'].detach().cpu().numpy()
+            z = self.model.encoder(data).detach().cpu().numpy()
+            data = data.detach().cpu().numpy()
+            _, axs = plt.subplots(1, 2)
+
+            # When using other datasets, we have to reduce the dim here
+            if data.shape[1] > 2:
+                data_pca = PCA(n_components=2)
+                context_pca = PCA(n_components=2)
+                data = data_pca.fit_transform(data)
+                z = context_pca.fit_transform(z)
+                
+            axs[0].scatter(data[:,0], data[:,1], c=labels)
+            axs[0].set_title('Input data')
+            axs[1].scatter(z[:,0], z[:,1], c=labels)
+            axs[1].set_title('Latent representation')
+            plt.tight_layout()
+            self.logger.log_plot("repr/encoder_representations", self.step)
+            plt.close()
+            
     def test_epoch(self):
         loss = super().test_epoch()
         with torch.no_grad():
@@ -126,14 +151,25 @@ class AutoencoderTrainer(Trainer):
         return train_dl, test_dl
     
     def train_classifier(self, train_dl: DataLoader, test_dl: DataLoader) -> list:
-        latent_dim = next(iter(train_dl))["x"].shape[1]
-        num_classes = len(train_dl.dataset.labels.unique())
-        classifier = nn.Linear(latent_dim, num_classes).to(self.device)
-        optimizer = torch.optim.AdamW(classifier.parameters(), lr=1e-3, weight_decay=1e-3)
-        criterion = nn.CrossEntropyLoss()
-        accs = train_classifier(classifier=classifier, train_loader=train_dl, test_loader=test_dl, 
-                                optimizer=optimizer, criterion=criterion, device=self.device, epochs=self.classification_epochs)
-        return accs
+        x_train, y_train = [], []
+        for b in train_dl:
+            x_train.append(b['x'].detach().cpu().numpy())
+            y_train.append(b['y'].detach().cpu().numpy())
+        x_train, y_train = np.vstack(x_train), np.hstack(y_train)
+
+        x_test, y_test = [], []
+        for b in test_dl:
+            x_test.append(b['x'].detach().cpu().numpy())
+            y_test.append(b['y'].detach().cpu().numpy())
+        x_test, y_test = np.vstack(x_test), np.hstack(y_test) 
+
+        multiclass_opt = "multinomial" if len(np.unique(y_train)) > 2 else "auto" # For multiclass
+        lr = LogisticRegression(C=2, max_iter=10000,  multi_class=multiclass_opt)
+        lr.fit(x_train, y_train)
+        pred = lr.predict(x_test)
+        accs = sum(pred==y_test)/len(y_test)
+
+        return [accs]
 
     def log_flatness(self, losses: dict, split: str):
         """
