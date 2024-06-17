@@ -121,11 +121,16 @@ class Trainer:
             torch.compile(self.model)
 
     def train_step(self, batch: dict) -> float:
+        # with gradient accumulation, it would be more natural to have an
+        # inner loop where we load multiple batches and accumulate losses,
+        # so that every other object is unaware that gradient accumulation
+        # even happens (as opposed to fitting a larger batch size in memory)
         self.move_to_device(batch)
         output = self.model(batch)
         losses = self.criterion(output, batch)
         loss = losses["loss"]
-        loss.backward()
+        normalized_loss = loss / self.gradient_accumulation_steps
+        normalized_loss.backward()  # assuming reduction='mean' in loss computation
         if self.clock % self.gradient_accumulation_steps == 0:
             self.optimizer.step()
             self.optimizer.zero_grad()
