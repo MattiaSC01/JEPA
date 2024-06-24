@@ -68,11 +68,17 @@ class JepaSharpen(nn.Module):
     def forward(self, batch: dict) -> dict:
         x = batch["x"]
         x_hat = batch["x_hat"]
-        context_out = self.ctx_encoder_w2(F.gelu(self.ctx_encoder_w1(x)))
-        predictor_out = self.predictor(context_out)
-        perturbation = F.gelu(self.ctx_encoder_w1(x_hat) + self.delta_wr1(x_hat))
-        target_out = self.nd_act(self.ctx_encoder_w2(perturbation) + self.delta_wr2(perturbation)) # Formulation with negated gradient identity map
+        # context_out = self.ctx_encoder_w2(F.gelu(self.ctx_encoder_w1(x)))
+        # predictor_out = self.predictor(context_out)
+        # perturbation = F.gelu(self.ctx_encoder_w1(x_hat) + self.delta_wr1(x_hat))
+        # target_out = self.nd_act(self.ctx_encoder_w2(perturbation) + self.delta_wr2(perturbation)) # Formulation with negated gradient identity map
         
+        # #### LINEAR VERSION #####
+        context_out = self.ctx_encoder_w2(self.ctx_encoder_w1(x))
+        predictor_out = self.predictor(context_out)
+        perturbation = self.ctx_encoder_w1(x_hat) + self.delta_wr1(x_hat)
+        target_out = self.nd_act(self.ctx_encoder_w2(perturbation) + self.delta_wr2(perturbation)) # Formulation with negated gradient identity map
+
         return {
             "encoder_output": context_out, 
             "predictor_output": predictor_out, 

@@ -14,23 +14,25 @@ from src.jepa.sam import SAM
 # os.environ["WANDB__SERVICE_WAIT"] = "300"
 
 # fixed hyperparams
-# load_dataset = load_2Dtoy
+load_dataset = load_2Dtoy
 toy_dataset_type = 'circle'
 toy_noise_scale = 0.0
-# lr = 0.0005
-# weight_decay = 5e-5
-# batch_size = 64
-# alpha = 0.985
-# log_interval = 10 # batches
+lr = 0.0005
+weight_decay = 5e-5
+batch_size = 64
+alpha = 0.985
+log_interval = 1 # batches
+max_epochs = 100
 
-load_dataset = load_cifar
+# load_dataset = load_cifar
 # load_dataset = load_mnist
-batch_size = 128
-alpha = 0.99
-lr = 0.000001
-weight_decay = 1e-6
+# batch_size = 128
+# alpha = 0.99
+# lr = 0.000001
+# weight_decay = 1e-6
+# max_epochs = 50
+
 sparsity_weight = 0.0
-max_epochs = 50
 gpu_idx = 1
 device = "cpu" if not torch.cuda.is_available() else f"cuda:{gpu_idx}"
 compile_model = True
@@ -77,7 +79,7 @@ if load_dataset.__name__ == 'load_2Dtoy':
 
     encoder = torch.nn.Sequential(
         nn.Linear(in_dim, hidden_dim),
-        nn.ReLU(),
+        # nn.ReLU(),
         nn.Linear(hidden_dim, in_dim),
     )
     predictor = torch.nn.Sequential(

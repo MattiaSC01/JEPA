@@ -11,6 +11,7 @@ from sklearn.decomposition import PCA
 from .trainer import Trainer
 from ..model.jepa import Jepa
 from ..evaluation import build_dataset_of_latents, train_classifier
+from ..geom_utils import build_knn_graph, delta_hyperbolicity, oricci_curvature
 
 
 
@@ -39,10 +40,35 @@ class JepaTrainer(Trainer):
         if self.epoch % self.classification_interval == 0:
             self.handle_classification()
         return loss
+
+    def log_gromov_hyperbolicity(self, context_repr, target_repr, step):
+        context_graph = build_knn_graph(context_repr)
+        target_graph = build_knn_graph(target_repr)
+        delta_hyp_context = delta_hyperbolicity(context_graph)
+        delta_hyp_target = delta_hyperbolicity(target_graph)
+        self.logger.log_metric(delta_hyp_context, "geometric_measures/context_delta_hyperbolicity", step)
+        self.logger.log_metric(delta_hyp_target, "geometric_measures/target_delta_hyperbolicity", step)
+    
+    def log_ricci_curvature(self, context_repr, target_repr, step):
+        # Log geometric measures of the latent representations: Gromov delta hyperbolicity, Olivier-Ricci Curvature
+        context_graph = build_knn_graph(context_repr)
+        target_graph = build_knn_graph(target_repr)
+        oricci_context = oricci_curvature(context_graph)
+        oricci_target = oricci_curvature(target_graph)
+
+        # log the oricci_curvature as a histogram
+        _, axs = plt.subplots(1, 2)
+        axs[0].hist(oricci_context, bins=20)
+        axs[0].set_title('Context')
+        axs[1].hist(oricci_target, bins=20)
+        axs[1].set_title('Target')
+        self.logger.log_plot("geometric_measures/oricci_curvature", step)
+        plt.close()
     
     def log_on_train_step(self, losses):
         super().log_on_train_step(losses)
-        if self.step % (self.log_interval * 20) == 0:
+        # if self.step % (self.log_interval * 20) == 0:
+        if self.step % (self.log_interval * 1) == 0:
             norms = self.model.norms_and_similarities()
             self.logger.log_metric(norms["similarity"]["weight_similarity"], "norms/weight_similarity", self.step)
             self.logger.log_metric(norms["similarity"]["bias_similarity"], "norms/bias_similarity", self.step)
@@ -60,7 +86,11 @@ class JepaTrainer(Trainer):
             context_repr = self.model.encoder(data).detach().cpu().numpy()
             target_repr = self.model.ema(data).detach().cpu().numpy()
             data = data.detach().cpu().numpy()
-            _, axs = plt.subplots(1, 3)
+
+            # Log geometric measures of the latent representations: Gromov delta hyperbolicity, Olivier-Ricci Curvature
+            self.log_gromov_hyperbolicity(context_repr, target_repr, step=self.step) # TODO: these are not logging frequently
+            if self.step % 3 == 0: # log curvature fewer times, heavy calculation (OT dist)
+                self.log_ricci_curvature(context_repr, target_repr, step=self.step)
 
             # When using other datasets, we have to reduce the dim here
             if data.shape[1] > 2:
@@ -70,7 +100,8 @@ class JepaTrainer(Trainer):
                 data = data_pca.fit_transform(data)
                 context_repr = context_pca.fit_transform(context_repr)
                 target_repr = target_pca.fit_transform(target_repr)
-                
+
+            _, axs = plt.subplots(1, 3)   
             axs[0].scatter(data[:,0], data[:,1], c=labels)
             axs[0].set_title('Input data')
             axs[1].scatter(context_repr[:,0], context_repr[:,1], c=labels)
@@ -108,11 +139,6 @@ class JepaTrainer(Trainer):
         self.logger.log_metric(accs[-1], "classification/final_acc", self.step)
         if self.is_sweep:
             return
-        plt.figure()
-        plt.plot(accs)
-        plt.title("Test accuracy over epochs - linear classifier on latents")
-        self.logger.log_plot("classification/accuracy", self.step)
-        plt.close()
 
     @torch.no_grad()
     def build_latent_datasets(self) -> tuple[DataLoader, DataLoader]:

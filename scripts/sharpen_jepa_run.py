@@ -34,18 +34,18 @@ def train_classifier(x_train, y_train, x_test, y_test):
 
 # Hyperparams
 
-# load_dataset = load_2Dtoy
-toy_dataset_type = 'spiral'
+load_dataset = load_2Dtoy
+toy_dataset_type = 'xor'
 toy_noise_scale = 0.0
-# batch_size = 64
+batch_size = 64
 
-load_dataset = load_cifar
+# load_dataset = load_cifar
 # load_dataset = load_mnist
-batch_size = 128
+# batch_size = 128
 lr = 0.0005
 weight_decay = 0.5
 max_epochs = 100
-gpu_idx = 1
+gpu_idx = 0
 seed = 42
 # rho = 0.5
 rho = 0.05
